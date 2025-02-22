@@ -11,44 +11,7 @@ from model.roofnet import RoofNet
 from torch import optim
 from utils import common_utils
 from model import model_utils
-import torch.optim.lr_scheduler as lr_scheduler
 
-
-class WarmupScheduler(lr_scheduler._LRScheduler):
-    """
-    Implements a learning rate warm-up schedule followed by a Cosine Annealing schedule.
-    The learning rate will start small and increase linearly for the first `warmup_epochs` epochs.
-    After that, it follows a CosineAnnealingLR schedule.
-    """
-    def __init__(self, optimizer, warmup_epochs, max_epochs, eta_min=1e-6, last_epoch=-1):
-        self.warmup_epochs = warmup_epochs
-        self.max_epochs = max_epochs
-        self.eta_min = eta_min
-        self.base_lr = optimizer.param_groups[0]['lr']
-        super(WarmupScheduler, self).__init__(optimizer, last_epoch)
-
-    def get_lr(self):
-        # Get the current epoch
-        epoch = self.last_epoch
-
-        if epoch < self.warmup_epochs:
-            # Linear warmup phase
-            warmup_lr = self.base_lr * (epoch + 1) / self.warmup_epochs
-            return [warmup_lr for _ in self.optimizer.param_groups]
-        else:
-            # Cosine annealing phase
-            cosine_lr = self.eta_min + 0.5 * (self.base_lr - self.eta_min) * \
-                        (1 + torch.cos(torch.tensor(epoch - self.warmup_epochs) * torch.pi / (self.max_epochs - self.warmup_epochs)))
-            return [cosine_lr for _ in self.optimizer.param_groups]
-
-def get_optimizer_and_scheduler(net, args):
-    # AdamW 优化器
-    optimizer = optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
-
-    # 设置学习率热身和 Cosine Annealing 调度器
-    scheduler = WarmupScheduler(optimizer, warmup_epochs=8, max_epochs=args.epochs, eta_min=1e-6)
-
-    return optimizer, scheduler
 
 
 def get_scheduler(name, optim, last_epoch):
@@ -62,7 +25,7 @@ def get_optimizer(name, net, lr):
     if name == "adam":
         opt = optim.Adam(net.parameters(), lr=lr, weight_decay=1e-3)
     elif name == "adamw":
-        opt = optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-3)
+        opt = optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-4)
     return opt
     
 def parse_config():
@@ -102,13 +65,12 @@ def main():
 
     logger.info('**********************Start logging**********************')
 
-    train_loader = build_dataloader_Building3DDataset(args.data_path, args.batch_size, cfg.DATA, training=True, logger=logger, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY)
+    train_loader = build_dataloader_Building3DDataset(args.data_path, args.batch_size, cfg.DATA, training=True, logger=logger, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=cfg.FPFH)
 
-    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY)
+    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=cfg.FPFH)
     net.cuda()
-    # optimizer = get_optimizer(args.optimizer, net, args.lr)
+    optimizer = get_optimizer(args.optimizer, net, args.lr)
     
-    optimizer, scheduler = get_optimizer_and_scheduler(net, args)
     start_epoch = it = 0
     last_epoch = -1
     ckpt_list = glob.glob(str(ckpt_dir / '*checkpoint_epoch_*.pth'))
@@ -120,7 +82,7 @@ def main():
         )
         last_epoch = start_epoch + 1
 
-    # scheduler = get_scheduler(args.scheduler, optimizer, last_epoch=last_epoch)
+    scheduler = get_scheduler(args.scheduler, optimizer, last_epoch=last_epoch)
 
     net = net.train()
     logger.info('**********************Start training**********************')

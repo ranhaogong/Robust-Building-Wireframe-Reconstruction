@@ -23,13 +23,14 @@ except ImportError:
 from .serialization import encode
 
 class PointNet2(nn.Module):
-    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False):
+    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False, fpfh=False):
         super().__init__()
         self.model_cfg = model_cfg
         self.color = color
         self.nir = nir
         self.intensity = intensity
         self.in_channel = in_channel
+        self.fpfh = fpfh
         # 使用 PointTransformerV3 替换 PointNet++ 的特征提取部分
         self.ptv3 = PointTransformerV3(
             in_channels=in_channel,

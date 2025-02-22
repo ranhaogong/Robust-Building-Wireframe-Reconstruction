@@ -1,13 +1,12 @@
 DATA:
   NPOINT: 2048
-COLOR: False
+COLOR: True
 NIR: False
 INTENSITY: False
 FPFH: True
 MODEL:
   PointNet2:
     PosRadius: 0.15
-    KnnPoint: 6
     LossWeight: {
       'cls_weight': 1.0,
       'reg_weight': 1.0

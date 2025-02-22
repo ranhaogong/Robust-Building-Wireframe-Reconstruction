@@ -59,7 +59,7 @@ def build_dataloader_PoznanRDDataset(path, batch_size, data_cfg, workers=16, log
         shuffle=training)
     return dataloader
 
-def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=16, logger=None, training=True, color=False, nir=False, intensity=False):
+def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False):
     path += '/train_all.txt' if training else '/test.txt'
 
     if training:
@@ -67,7 +67,7 @@ def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=16, l
     else:
         trasform = GaussianTransform(sigma= (0.005, 0.010), clip = 10, p = 0.0)
 
-    dataset = Building3DDataset(path, trasform, data_cfg, logger, color, nir, intensity)
+    dataset = Building3DDataset(path, trasform, data_cfg, logger, color, nir, intensity, fpfh)
     dataloader = DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, num_workers=workers, collate_fn=dataset.collate_batch,
         shuffle=training)
