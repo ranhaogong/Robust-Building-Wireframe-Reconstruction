@@ -6,12 +6,12 @@ from sklearn.cluster import DBSCAN
 
 
 class RoofNet(nn.Module):
-    def __init__(self, model_cfg, color=False, nir=False, intensity=False, fpfh=False):
+    def __init__(self, model_cfg, color=False, nir=False, intensity=False, fpfh=False, lovasz=False):
         super().__init__()
         self.use_edge = False
         self.model_cfg = model_cfg
         self.input_channel = 3 + (3 if color else 0) + (1 if nir else 0) + (1 if intensity else 0) +(5 if fpfh else 0)
-        self.keypoint_det_net = PointNet2(model_cfg.PointNet2, self.input_channel, color, nir, intensity, fpfh)
+        self.keypoint_det_net = PointNet2(model_cfg.PointNet2, self.input_channel, color, nir, intensity, fpfh, lovasz)
         self.cluster_refine_net = ClusterRefineNet(model_cfg.ClusterRefineNet, input_channel=self.keypoint_det_net.num_output_feature)
         self.edge_att_net = EdgeAttentionNet(model_cfg.EdgeAttentionNet, input_channel=self.cluster_refine_net.num_output_feature)
 

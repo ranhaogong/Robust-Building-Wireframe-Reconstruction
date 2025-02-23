@@ -67,7 +67,7 @@ def main():
 
     train_loader = build_dataloader_Building3DDataset(args.data_path, args.batch_size, cfg.DATA, training=True, logger=logger, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=cfg.FPFH)
 
-    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=cfg.FPFH)
+    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=cfg.FPFH, lovasz=getattr(cfg, 'LOVASZ', False))
     net.cuda()
     optimizer = get_optimizer(args.optimizer, net, args.lr)
     
