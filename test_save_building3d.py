@@ -45,8 +45,8 @@ def main():
     #     logger.info('{:16} {}'.format(key, val))
     # common_utils.log_config_to_file(cfg, logger=logger)
 
-    test_loader = build_dataloader_Building3DDatasetOutput(args.data_path, args.batch_size, cfg.DATA, training=False, logger=None, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY)
-    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY)
+    test_loader = build_dataloader_Building3DDatasetOutput(args.data_path, args.batch_size, cfg.DATA, training=False, logger=None, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False))
+    net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), lovasz=getattr(cfg, 'LOVASZ', False))
     net.cuda()
     net.eval()
     print("ckpt_dir: ", ckpt_dir)

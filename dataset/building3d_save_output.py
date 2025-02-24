@@ -92,7 +92,7 @@ def writePoints(points, clsRoad):
 
 
 class Building3DDatasetOutput(Dataset):
-    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False):
+    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False):
         with open(data_path, 'r') as f:
             self.file_list = f.readlines()
         self.file_list = [f.strip() for f in self.file_list]
@@ -111,12 +111,78 @@ class Building3DDatasetOutput(Dataset):
         
         self.intensity = intensity
 
+        self.fpfh = fpfh
+        
         if logger is not None:
             logger.info('Total samples: %d' % len(self))
 
     def __len__(self):
         return len(self.file_list)
+    def compute_fpfh_features(self, points):
+        # Convert points to open3d format
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points[:, :3])  # assuming the first three columns are xyz
 
+        # Estimate normals for FPFH
+        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+        # Compute FPFH
+        fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, o3d.geometry.KDTreeSearchParamHybrid(radius=0.25, max_nn=100))
+        
+        return np.asarray(fpfh.data).T  # Return the FPFH features as numpy array
+    
+    def select_best_fpfh_features(self, all_fpfh_features):
+        """
+        Select the best FPFH features based on their discriminative power (variance) across the entire point cloud.
+        Here, we select the features with the highest variance.
+        """
+        best_features = []
+        
+        # Calculate the variance of each feature across the entire point cloud
+        for i in range(all_fpfh_features.shape[1]):
+            feature = all_fpfh_features[:, i]  # Extract the i-th feature for all points
+            feature_variance = np.var(feature)  # Compute variance of this feature
+            best_features.append((feature_variance, i))  # Store variance and corresponding feature index
+
+        # Sort features by variance (highest variance first) and select the top 5
+        best_features.sort(reverse=True, key=lambda x: x[0])
+        selected_feature_indices = [x[1] for x in best_features[:5]]  # Select the top 5 features based on variance
+
+        return selected_feature_indices
+
+    def normalize_features(self, features):
+        """
+        Normalize the FPFH features (e.g., Z-score or Min-Max normalization).
+        """
+        # Z-score normalization
+        mean = np.mean(features, axis=0)
+        std = np.std(features, axis=0)
+        features_normalized = (features - mean) / std
+        
+        # Alternatively, you can use Min-Max normalization:
+        # min_val = np.min(features, axis=0)
+        # max_val = np.max(features, axis=0)
+        # features_normalized = (features - min_val) / (max_val - min_val)
+        return features_normalized
+    
+    def add_fpfh(self, points):
+        # Compute all FPFH features
+        all_fpfh_features = self.compute_fpfh_features(points)
+
+        # Select the best FPFH features based on their variance
+        selected_fpfh_indices = self.select_best_fpfh_features(all_fpfh_features)
+        
+        # Keep only the selected FPFH features
+        selected_fpfh_features = all_fpfh_features[:, selected_fpfh_indices]
+        
+        # Normalize the selected FPFH features
+        selected_fpfh_features = self.normalize_features(selected_fpfh_features)
+        
+        # Now append the normalized selected FPFH features to the point cloud data
+        points = np.hstack((points, selected_fpfh_features))  # Add the selected and normalized FPFH features to the point cloud data
+
+        return points
+        
     def norm(self, points, color=False, nir=False, intensity=False):
         if color == False and nir == False and intensity == False:
             min_pt, max_pt = np.min(points, axis=0), np.max(points, axis=0)
@@ -192,6 +258,8 @@ class Building3DDatasetOutput(Dataset):
         points = points[idx]
 
         points, pt, centroid, max_distance = self.norm(points, self.color, self.nir, self.intensity)
+        if self.fpfh:
+            points = self.add_fpfh(points)
         data_dict = {'points': points, 'frame_id': frame_id, 'minMaxPt': pt, 'centroid': centroid, 'max_distance': max_distance}
         return data_dict
 
