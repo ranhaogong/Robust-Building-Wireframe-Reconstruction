@@ -1,6 +1,0 @@
-2024-12-18 14:14:02,987   INFO  **********************Start logging**********************
-2024-12-18 14:14:02,988   INFO  Total samples: 450
-2024-12-18 14:14:03,083   INFO  ==> Loading parameters from checkpoint
-2024-12-18 14:14:03,127   INFO  ==> Loading optimizer parameters from checkpoint
-2024-12-18 14:14:03,138   INFO  ==> Done
-2024-12-18 14:14:03,139   INFO  **********************Start training**********************
