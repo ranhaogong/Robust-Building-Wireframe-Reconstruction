@@ -11,7 +11,7 @@ from model.roofnet import RoofNet
 from torch import optim
 from utils import common_utils
 from model import model_utils
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 
 def get_scheduler(name, optim, last_epoch):
     if name == "steplr":
