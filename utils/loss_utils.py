@@ -3,6 +3,41 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2, alpha=0.25, reduction='mean'):
+        """
+        Focal Loss 实现
+        :param gamma: 聚焦因子，控制难分类样本的权重
+        :param alpha: 平衡因子，控制正负样本的权重
+        :param reduction: 损失的聚合方式 ['mean', 'sum', 'none']
+        """
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+
+    def forward(self, pred, target):
+        """
+        计算 Focal Loss
+        :param pred: 预测值 (logits), 形状为 [N, 1]
+        :param target: 真实标签 (0 或 1), 形状为 [N, 1]
+        :return: 计算出的 Focal Loss
+        """
+        pred_prob = torch.sigmoid(pred)  # 转换为概率
+        target = target.float()
+
+        pt = target * pred_prob + (1 - target) * (1 - pred_prob)  # 计算 pt
+        focal_weight = (self.alpha * target + (1 - self.alpha) * (1 - target)) * (1 - pt) ** self.gamma
+
+        bce_loss = F.binary_cross_entropy_with_logits(pred, target, reduction='none')  # BCE损失
+        loss = focal_weight * bce_loss
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
 
 class SigmoidFocalClassificationLoss(nn.Module):
     """

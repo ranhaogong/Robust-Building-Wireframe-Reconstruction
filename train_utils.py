@@ -12,6 +12,7 @@ def train_one_epoch(model, optim, data_loader, accumulated_iter,
     dataloader_iter = iter(data_loader)
     pbar = tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc='train', dynamic_ncols=True)
     total_loss = 0.0 
+    scaler = torch.cuda.amp.GradScaler()
     for cur_it in range(total_it_each_epoch):
         try:
             batch = next(dataloader_iter)
@@ -32,6 +33,7 @@ def train_one_epoch(model, optim, data_loader, accumulated_iter,
         # loss.backward()
         loss.backward()
         optim.step()
+        torch.cuda.empty_cache()
 
         accumulated_iter += 1
         disp_dict.update(loss_dict)

@@ -29,6 +29,7 @@ class RoofNet(nn.Module):
             if self.use_edge:
                 tmp_loss, loss_dict, disp_dict = self.cluster_refine_net.loss(loss_dict, disp_dict)
                 loss += tmp_loss
+                # tmp_loss, loss_dict, disp_dict = self.edge_att_net.loss(loss_dict, disp_dict)
                 tmp_loss, loss_dict, disp_dict = self.edge_att_net.loss(loss_dict, disp_dict)
                 loss += tmp_loss
             return loss, loss_dict, disp_dict
