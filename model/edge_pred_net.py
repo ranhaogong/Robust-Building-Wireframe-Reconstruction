@@ -28,7 +28,7 @@ class EdgeAttentionNet(nn.Module):
             self.train_dict = {}
             self.add_module('cls_loss_func', loss_utils.SigmoidBCELoss())
             self.loss_weight = self.model_cfg.LossWeight
-            self.connectivity_weight = 0.2
+            self.connectivity_weight = 1000
 
         self.initialized = False  # 标记是否已初始化
 
@@ -130,12 +130,14 @@ class EdgeAttentionNet(nn.Module):
     def loss(self, loss_dict, disp_dict):
         pred_cls = self.train_dict['edge_pred']
         label_cls = self.train_dict['label']
-
-        cls_loss = self.get_cls_loss(pred_cls, label_cls, self.loss_weight['cls_weight'])
+        loss_weight = 1
+        # cls_loss = self.get_cls_loss(pred_cls, label_cls, self.loss_weight['cls_weight'])
+        cls_loss = self.get_cls_loss(pred_cls, label_cls, loss_weight)
         pair_idx1 = self.train_dict['pair_idx1']
         pair_idx2 = self.train_dict['pair_idx2']
         connectivity_loss = self.get_connectivity_loss(pred_cls, pair_idx1, pair_idx2)
-        loss = cls_loss + self.connectivity_weight * connectivity_loss
+        connectivity_loss = self.connectivity_weight * connectivity_loss
+        loss = cls_loss + connectivity_loss
 
         loss_dict.update({
             'edge_cls_loss': cls_loss.item(),
@@ -160,7 +162,20 @@ class EdgeAttentionNet(nn.Module):
         cls_weights /= torch.clamp(pos_normalizer, min=1.0)
         cls_loss_src = self.cls_loss_func(pred.squeeze(-1), label, weights=cls_weights)
         cls_loss = cls_loss_src.sum()
-        return cls_loss * weight
+        batch_size = label.size(0)
+        return cls_loss * weight / 10
+    # def get_cls_loss(self, pred, label, weight):
+    #     positives = label > 0
+    #     negatives = label == 0
+    #     cls_weights = (negatives * 1.0 + positives * 1.0).float()
+    #     pos_normalizer = positives.sum().float()
+    #     cls_weights /= torch.clamp(pos_normalizer, min=1.0)
+    #     cls_loss_src = self.cls_loss_func(pred.squeeze(-1), label, weights=cls_weights)
+    #     cls_loss = cls_loss_src.sum()
+    #     batch_size = label.size(0)
+    #     max_loss = torch.log(torch.tensor(2.0)) * batch_size  # 二分类交叉熵最大值
+    #     normalized_loss = cls_loss / max_loss  # 归一化到 [0, 1]
+    #     return normalized_loss * weight
 
     def get_connectivity_loss(self, pred, pair_idx1, pair_idx2):
         pred_sigmoid = torch.sigmoid(pred.squeeze(-1))
