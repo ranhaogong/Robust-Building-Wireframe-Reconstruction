@@ -265,7 +265,30 @@ class PointNet2(nn.Module):
         pred = torch.where(pred_logit >= 0.5, pred_logit.new_ones(pred_logit.shape), pred_logit.new_zeros(pred_logit.shape))
         acc = torch.sum((pred == label_cls) & (label_cls == 1)).item() / torch.sum(label_cls == 1).item()
         #acc = torch.sum(pred == label_cls).item() / len(label_cls.view(-1))
-        disp_dict.update({'pts_acc': acc})
+        # 计算 TP, FP, TN, FN
+        TP = torch.sum((pred == 1) & (label_cls == 1)).item()  # 真正例
+        FP = torch.sum((pred == 1) & (label_cls == 0)).item()  # 假正例
+        TN = torch.sum((pred == 0) & (label_cls == 0)).item()  # 真负例
+        FN = torch.sum((pred == 0) & (label_cls == 1)).item()  # 假负例
+
+        # 总样本数
+        total = TP + FP + TN + FN
+
+        # 准确率 (Accuracy): (TP + TN) / 总样本数
+        accuracy = (TP + TN) / total if total > 0 else 0
+
+        # 精确度 (Precision): TP / (TP + FP)
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 0
+
+        # 召回率 (Recall): TP / (TP + FN)，与你给的代码类似
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0
+
+        # F1-score: 2 * (Precision * Recall) / (Precision + Recall)
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        disp_dict.update({'pts_re': recall})
+        disp_dict.update({'pts_accuracy': accuracy})
+        disp_dict.update({'pts_pre': precision})
+        disp_dict.update({'pts_f1': f1_score})
         return loss, loss_dict, disp_dict
 
     # pred: [B,N,1], label: [B,N]

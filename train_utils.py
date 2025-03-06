@@ -33,7 +33,7 @@ def train_one_epoch(model, optim, data_loader, accumulated_iter,
         # loss.backward()
         loss.backward()
         optim.step()
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
         accumulated_iter += 1
         disp_dict.update(loss_dict)

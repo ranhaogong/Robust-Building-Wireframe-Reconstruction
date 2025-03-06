@@ -3,10 +3,10 @@ import shutil
 from tqdm import tqdm
 
 # 定义路径
-data_dir = "/data/haoran/dataset/building3d/roof/Tallinn/train"
+data_dir = "/data/haoran/dataset/building3d/tokyo/training"
 obj_dir = os.path.join(data_dir, "wireframe")
 xyz_dir = os.path.join(data_dir, "xyz")
-output_dir = "/data/haoran/dataset/building3d/Point2Roof"
+output_dir = "/data/haoran/dataset/building3d/Point2Roof_tokyo"
 
 # 创建目标文件夹
 os.makedirs(output_dir, exist_ok=True)
