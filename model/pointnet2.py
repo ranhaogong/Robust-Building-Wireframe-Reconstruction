@@ -1157,84 +1157,6 @@ class Embedding(PointModule):
         point = self.stem(point)
         return point
 
-class FPFHEncoder(PointModule):
-    def __init__(self, fpfh_dim, embed_channels, nsample=16, radius=0.1):
-        super().__init__()
-        self.fpfh_dim = fpfh_dim  # FPFH特征的维度（例如5）
-        self.embed_channels = embed_channels  # Embedding层的输出维度
-        self.nsample = nsample  # 局部邻域采样点数
-        self.radius = radius  # 局部邻域查询半径
-
-        # MLP用于FPFH特征降维和增强
-        self.mlp_fpfh = nn.Sequential(
-            nn.Linear(fpfh_dim, embed_channels // 2),
-            nn.GELU(),
-            nn.Linear(embed_channels // 2, embed_channels),
-            nn.GELU()
-        )
-
-        # PointNet++的Set Abstraction层，用于局部邻域聚合
-        self.sa_fpfh = PointNetSAModuleMSG(
-            npoint=None,  # 不进行下采样，保持点数不变
-            radii=[radius],
-            nsamples=[nsample],
-            in_channel=embed_channels,
-            mlps=[[embed_channels, embed_channels]],
-            use_xyz=False  # 只处理特征，不考虑坐标
-        )
-
-        # 特征融合的权重
-        self.fusion_weight_fpfh = nn.Parameter(torch.tensor(0.5))
-        self.fusion_weight_xyzrgb = nn.Parameter(torch.tensor(0.5))
-
-    def forward(self, point, xyz):
-        """
-        point: Point对象，包含feat（输入特征）、coord（坐标）和batch（批次索引）
-        xyz: 原始坐标，用于局部邻域查询
-        """
-        # 分离FPFH特征
-        fpfh_feat = point.feat[:, -self.fpfh_dim:]  # 提取FPFH特征（最后5维）
-        xyzrgb_feat = point.feat[:, :-self.fpfh_dim]  # 提取xyzrgb特征（前面的维度）
-
-        # 对FPFH特征进行MLP降维和增强
-        fpfh_enhanced = self.mlp_fpfh(fpfh_feat)  # (B*N, embed_channels)
-
-        # 获取批次信息
-        batch_size = point.batch.max().item() + 1
-        bincount = offset2bincount(point.offset)  # 每个批次的点数
-        max_points = bincount.max().item()  # 最大点数，用于填充
-
-        # 将xyz和fpfh_enhanced转换为按批次组织的张量
-        xyz_batched = torch.zeros(batch_size, max_points, 3, device=xyz.device)
-        fpfh_batched = torch.zeros(batch_size, max_points, self.embed_channels, device=fpfh_enhanced.device)
-        mask = torch.zeros(batch_size, max_points, dtype=torch.bool, device=xyz.device)
-
-        for b in range(batch_size):
-            batch_mask = point.batch == b
-            num_points = bincount[b]
-            xyz_batched[b, :num_points] = xyz[batch_mask]
-            fpfh_batched[b, :num_points] = fpfh_enhanced[batch_mask]
-            mask[b, :num_points] = True
-
-        # 将fpfh_batched的形状从(B, N, C)转换为(B, C, N)，以匹配PointNetSAModuleMSG的期望
-        fpfh_batched = fpfh_batched.permute(0, 2, 1)  # (B, C, N)
-
-        # 使用PointNet++的Set Abstraction层进行局部邻域聚合
-        _, fpfh_aggregated = self.sa_fpfh(xyz_batched, fpfh_batched)  # (B, embed_channels, N)
-
-        # 将聚合后的FPFH特征转换回(B*N, embed_channels)的形状
-        fpfh_aggregated_flat = torch.zeros_like(fpfh_enhanced)
-        for b in range(batch_size):
-            batch_mask = point.batch == b
-            num_points = bincount[b]
-            fpfh_aggregated_flat[batch_mask] = fpfh_aggregated[b, :, :num_points].permute(1, 0)  # (N, C)
-
-        # 特征融合：加权融合FPFH特征和原始特征
-        fused_feat = self.fusion_weight_fpfh * fpfh_aggregated_flat + self.fusion_weight_xyzrgb * point.feat
-
-        # 更新point.feat
-        point.feat = fused_feat
-        return point
 
 class PointTransformerV3(PointModule):
     def __init__(
@@ -1269,14 +1191,12 @@ class PointTransformerV3(PointModule):
         pdnorm_adaptive=False,
         pdnorm_affine=True,
         pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"),
-        fpfh_dim=5,  # 新增参数：FPFH特征的维度
     ):
         super().__init__()
         self.num_stages = len(enc_depths)
         self.order = [order] if isinstance(order, str) else order
         self.cls_mode = cls_mode
         self.shuffle_orders = shuffle_orders
-        self.fpfh_dim = fpfh_dim  # 保存FPFH维度
 
         assert self.num_stages == len(stride) + 1
         assert self.num_stages == len(enc_depths)
@@ -1319,14 +1239,6 @@ class PointTransformerV3(PointModule):
             embed_channels=enc_channels[0],
             norm_layer=bn_layer,
             act_layer=act_layer,
-        )
-
-        # 新增FPFH Encoder模块
-        self.fpfh_encoder = FPFHEncoder(
-            fpfh_dim=fpfh_dim,
-            embed_channels=enc_channels[0],
-            nsample=16,  # 可调参数：邻域采样点数
-            radius=0.1,  # 可调参数：邻域查询半径
         )
 
         # encoder
@@ -1438,14 +1350,7 @@ class PointTransformerV3(PointModule):
         point.serialization(order=self.order, shuffle_orders=self.shuffle_orders)
         point.sparsify()
 
-        # 保存原始坐标，用于FPFH Encoder的局部邻域查询
-        xyz = point.coord.view(-1, 3)
-
         point = self.embedding(point)
-
-        # 在Embedding之后、Encoder之前添加FPFH Encoder
-        point = self.fpfh_encoder(point, xyz)
-
         point = self.enc(point)
         if not self.cls_mode:
             point = self.dec(point)

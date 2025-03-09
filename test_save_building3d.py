@@ -50,7 +50,7 @@ def main():
     net.cuda()
     net.eval()
     print("ckpt_dir: ", ckpt_dir)
-    ckpt_list = ['/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_wavelet_edge/ckpt/checkpoint_epoch_144.pth']
+    ckpt_list = ['/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_wavelet_graph/ckpt/checkpoint_epoch_146.pth']
     # ckpt_list = glob.glob(str(ckpt_dir / '*checkpoint_epoch_*.pth'))
     print("ckpt_list: ", ckpt_list)
     if len(ckpt_list) > 0:
