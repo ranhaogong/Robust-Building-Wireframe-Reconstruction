@@ -3,6 +3,7 @@ import numpy as np
 import open3d as o3d
 from tqdm import tqdm
 import random
+import shutil
 
 def set_random_seed(seed=42):
     """设置随机种子以确保结果可重复"""
@@ -172,8 +173,8 @@ def visualize_point_cloud(points_with_colors):
     pcd.colors = o3d.utility.Vector3dVector(points_with_colors[:, 3:] / 255.0)
     o3d.visualization.draw_geometries([pcd])
 
-def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_threshold=0.05, min_points=20):
-    """处理所有 .xyz 文件并进行单体化"""
+def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_threshold=0.05, min_points=20, point_threshold=10000):
+    """处理所有 .xyz 文件并进行单体化，总点数超过 point_threshold 才聚类"""
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
@@ -182,6 +183,18 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
     for xyz_file in tqdm(xyz_files, desc="Processing files"):
         input_path = os.path.join(input_dir, xyz_file)
         points, input_colors = load_xyz(input_path)  # 加载原始点云和颜色
+        
+        # 检查总点数
+        total_points = len(points)
+        base_name = os.path.splitext(xyz_file)[0]
+        
+        if total_points <= point_threshold:
+            # 点数不超过 threshold，直接保存原始文件
+            output_file = os.path.join(output_dir, f"{base_name}_original.xyz")
+            save_xyz(output_file, points, input_colors)
+            continue
+        
+        # 点数超过 threshold，进行聚类
         points_normalized, center, scale = normalize_point_cloud(points)
         
         # 转换为 open3d 点云
@@ -217,7 +230,6 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
         merged_points_with_colors = np.vstack(merged_points_with_colors)
         
         # 保存合并后的点云（使用生成的颜色）
-        base_name = os.path.splitext(xyz_file)[0]
         output_file = os.path.join(output_dir, f"{base_name}_merge.xyz")
         save_xyz(output_file, merged_points_with_colors[:, :3], merged_points_with_colors[:, 3:])
         
@@ -230,7 +242,6 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
                 cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
                 output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
                 save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
-                print(f"Saved cluster {i} with {len(cluster)} points to {output_file}")
         else:
             # 如果输入没有颜色，则使用生成的颜色
             for i, (cluster, _) in enumerate(final_clusters):
@@ -239,22 +250,23 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
                 cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
                 output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
                 save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
-                print(f"Saved cluster {i} with {len(cluster)} points to {output_file} (no input colors)")
 
 def main():
     # 设置随机种子
     set_random_seed(seed=42)
     
     # 设置路径
-    input_dir = "/data/haoran/Point2Roof/tokyo_xyz"  # 输入 .xyz 文件的目录
-    output_dir = "/data/haoran/Point2Roof/tokyo_xyz"  # 输出单体屋顶的目录
-    
+    # input_dir = "/data/haoran/dataset/building3d/tokyo/training/xyz"  # 输入 .xyz 文件的目录
+    # output_dir = "/data/haoran/dataset/building3d/tokyo/training_seg/xyz"  # 输出单体屋顶的目录
+    input_dir = "/data/haoran/Point2Roof/tokyo_case"  # 输入 .xyz 文件的目录
+    output_dir = "/data/haoran/Point2Roof/tokyo_case"  # 输出单体屋顶的目录
     # 参数设置（适合归一化点云）
-    distance_threshold = 0.02  # 空间距离阈值
-    height_threshold = 0.005  # 高度差异阈值
+    distance_threshold = 0.03  # 空间距离阈值0.02
+    height_threshold = 0.010  # 高度差异阈值0.005 15
     min_points = 20  # 每个簇的最小点数
+    point_threshold = 13000  # 点数阈值，超过此值才进行聚类
     
-    process_xyz_files(input_dir, output_dir, distance_threshold, height_threshold, min_points)
+    process_xyz_files(input_dir, output_dir, distance_threshold, height_threshold, min_points, point_threshold)
 
 if __name__ == "__main__":
     main()
