@@ -5,6 +5,7 @@ from scipy.spatial.distance import cdist
 import os
 from pathlib import Path
 from tqdm import tqdm  # 导入 tqdm 库
+import time
 
 # 设置随机种子以确保可重复性
 np.random.seed(42)
@@ -332,17 +333,35 @@ def downsample(filename, outputdir, pcd, target_points=2048):
     # print(f"归一化后的点云范围: {np.min(pcd.points, axis=0)} 到 {np.max(pcd.points, axis=0)}")
     # 执行采样（基于归一化后的点云）
 
+    # start_time = time.time()
     sampled_pcd, sampled_indices = feature_aware_adaptive_sampling(
         pcd, target_points=2048, radius=0.1, k_neighbors=30, beta=5.0
     )
-    # 随机采样
-    random_pcd, random_pcd_idx = random_sampling(pcd, target_points)
-    # 均匀采样
-    uniform_pcd, uniform_pcd_idx = uniform_sampling(pcd, target_points)
-    # fps采样
-    fps_pcd, fps_pcd_idx = fps_sampling(pcd, target_points)
-    # print(f"采样后点云点数: {len(sampled_normalized_pcd.points)}")
+    # end_time = time.time()
+    # sample_time = end_time - start_time
     
+    # 随机采样
+    # start_time = time.time()
+    # random_pcd, random_pcd_idx = random_sampling(pcd, target_points)
+    # end_time = time.time()
+    # random_time = end_time - start_time
+    
+    # 均匀采样
+    # start_time = time.time()
+    # uniform_pcd, uniform_pcd_idx = uniform_sampling(pcd, target_points)
+    # end_time = time.time()
+    # uniform_time = start_time - end_time
+    
+    # fps采样
+    # start_time = time.time()
+    # fps_pcd, fps_pcd_idx = fps_sampling(pcd, target_points)
+    # end_time = time.time()
+    # fps_time = end_time - start_time
+    
+    # print("sample_time: ", sample_time)
+    # print("random_time: ", random_time)
+    # print("uniform_time: ", uniform_time)
+    # print("fps_time: ", fps_time)
     # 反归一化采样点云
     # sampled_pcd = denormalize_point_cloud(sampled_normalized_pcd, center, scale)
     # random_sampled_pcd = denormalize_point_cloud(random_pcd, center, scale)
@@ -360,22 +379,23 @@ def downsample(filename, outputdir, pcd, target_points=2048):
     uniform_output_path = Path(outputdir) / uniform_output_filename
     fps_output_path = Path(outputdir) / fps_output_filename
     write_xyz_point_cloud(output_path, sampled_pcd, original_data, sampled_indices)
-    write_xyz_point_cloud(random_output_path, random_pcd, original_data, random_pcd_idx)
-    write_xyz_point_cloud(uniform_output_path, uniform_pcd, original_data, uniform_pcd_idx)
-    write_xyz_point_cloud(fps_output_path, fps_pcd, original_data, fps_pcd_idx)
-    print(f"采样点云已保存至: {output_path}")
-    print(f"随机采样点云已保存至: {random_output_path}")
-    print(f"均匀采样点云已保存至: {uniform_output_path}")
-    print(f"fps采样点云已保存至: {fps_output_path}")
+    # write_xyz_point_cloud(random_output_path, random_pcd, original_data, random_pcd_idx)
+    # write_xyz_point_cloud(uniform_output_path, uniform_pcd, original_data, uniform_pcd_idx)
+    # write_xyz_point_cloud(fps_output_path, fps_pcd, original_data, fps_pcd_idx)
+    # print(f"采样点云已保存至: {output_path}")
+    # print(f"随机采样点云已保存至: {random_output_path}")
+    # print(f"均匀采样点云已保存至: {uniform_output_path}")
+    # print(f"fps采样点云已保存至: {fps_output_path}")
     
 
 # 示例使用
 if __name__ == "__main__":
     # 读取 .xyz 点云文件（替换为你的点云文件路径）
     # pcd_path = "/data/haoran/dataset/building3d/roof/Tallinn/train/xyz_norm/2.xyz"  # 请替换为实际路径
-    pcd_files_path = "/data/haoran/dataset/building3d/roof/Tallinn/train/xyz_norm"
+    pcd_files_path = "/data/haoran/dataset/building3d/roof/Tallinn/test/xyz_norm"
     pcd_files = [f for f in os.listdir(pcd_files_path) if f.endswith('.xyz')]
-    pth = r"/data/haoran/Point2Roof/vis_sample" # dir1不存在
+    # pth = r"/data/haoran/Point2Roof/vis_sample"
+    pth = r"/data/haoran/dataset/building3d/roof/Tallinn/test/xyz_downsample" 
     if not os.path.exists(pth):
         os.mkdir(pth)
     for f in tqdm(pcd_files, desc="处理文件中"):

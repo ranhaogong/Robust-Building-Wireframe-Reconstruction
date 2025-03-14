@@ -23,13 +23,15 @@ except ImportError:
 from .serialization import encode
 
 class PointNet2(nn.Module):
-    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False):
+    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False, fpfh=False, lovasz=False):
         super().__init__()
         self.model_cfg = model_cfg
         self.color = color
         self.nir = nir
         self.intensity = intensity
         self.in_channel = in_channel
+        self.fpfh = fpfh
+        self.lovasz = lovasz
         # 使用 PointTransformerV3 替换 PointNet++ 的特征提取部分
         self.ptv3 = PointTransformerV3(
             in_channels=in_channel,
@@ -71,10 +73,16 @@ class PointNet2(nn.Module):
         self.num_output_feature = 64
         if self.training:
             self.train_dict = {}
-            self.add_module(
-                'cls_loss_func',
-                loss_utils.SigmoidBCELoss()
-            )
+            if self.lovasz:
+                self.add_module(
+                    'cls_loss_func',
+                    loss_utils.LovaszLoss(mode="binary")
+                )
+            else: 
+                self.add_module(
+                    'cls_loss_func',
+                    loss_utils.SigmoidBCELoss()
+                )
             self.add_module(
                 'reg_loss_func',
                 loss_utils.WeightedSmoothL1Loss()
@@ -154,9 +162,33 @@ class PointNet2(nn.Module):
         pred = torch.where(pred_logit >= 0.5, pred_logit.new_ones(pred_logit.shape), pred_logit.new_zeros(pred_logit.shape))
         acc = torch.sum((pred == label_cls) & (label_cls == 1)).item() / torch.sum(label_cls == 1).item()
         #acc = torch.sum(pred == label_cls).item() / len(label_cls.view(-1))
-        disp_dict.update({'pts_acc': acc})
+        # 计算 TP, FP, TN, FN
+        TP = torch.sum((pred == 1) & (label_cls == 1)).item()  # 真正例
+        FP = torch.sum((pred == 1) & (label_cls == 0)).item()  # 假正例
+        TN = torch.sum((pred == 0) & (label_cls == 0)).item()  # 真负例
+        FN = torch.sum((pred == 0) & (label_cls == 1)).item()  # 假负例
+
+        # 总样本数
+        total = TP + FP + TN + FN
+
+        # 准确率 (Accuracy): (TP + TN) / 总样本数
+        accuracy = (TP + TN) / total if total > 0 else 0
+
+        # 精确度 (Precision): TP / (TP + FP)
+        precision = TP / (TP + FP) if (TP + FP) > 0 else 0
+
+        # 召回率 (Recall): TP / (TP + FN)，与你给的代码类似
+        recall = TP / (TP + FN) if (TP + FN) > 0 else 0
+
+        # F1-score: 2 * (Precision * Recall) / (Precision + Recall)
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        disp_dict.update({'pts_re': recall})
+        disp_dict.update({'pts_accuracy': accuracy})
+        disp_dict.update({'pts_pre': precision})
+        disp_dict.update({'pts_f1': f1_score})
         return loss, loss_dict, disp_dict
 
+    # pred: [B,N,1], label: [B,N]
     def get_cls_loss(self, pred, label, weight):
         batch_size = int(pred.shape[0])
         positives = label > 0
@@ -164,8 +196,12 @@ class PointNet2(nn.Module):
         cls_weights = (negatives * 1.0 + positives * 1.0).float()
         pos_normalizer = positives.sum(1, keepdim=True).float()
         cls_weights /= torch.clamp(pos_normalizer, min=1.0)
-        cls_loss_src = self.cls_loss_func(pred.squeeze(-1), label, weights=cls_weights)  # [N, M]
-        cls_loss = cls_loss_src.sum() / batch_size
+        if self.lovasz: 
+            cls_loss_src = self.cls_loss_func(pred, label.unsqueeze(-1))  
+            cls_loss = cls_loss_src
+        else:
+            cls_loss_src = self.cls_loss_func(pred.squeeze(-1), label, weights=cls_weights)  # cls_loss_src: [B, N]
+            cls_loss = cls_loss_src.sum() / batch_size
 
         cls_loss = cls_loss * weight
         return cls_loss

@@ -1,1 +1,0 @@
-/data/haoran/Point2Roof/testmydata/roof1.ply

@@ -5,6 +5,12 @@ import os
 import shutil
 import open3d as o3d
 
+from sklearn.neighbors import NearestNeighbors
+from scipy.spatial.distance import cdist
+from pathlib import Path
+from tqdm import tqdm  # 导入 tqdm 库
+import time
+
 def read_ply(pts_file):
     # 使用 open3d 读取 ply 文件
     pcd = o3d.io.read_point_cloud(pts_file)
@@ -234,6 +240,169 @@ class Building3DDatasetOutput(Dataset):
             max_distance = max_distance_xyz
         return points, pt, centroid, max_distance
 
+    def compute_geometric_features(self, pcd, radius=0.1, k_neighbors=30):
+        """
+        计算点云的几何特征，包括曲率、线性度和平面度。
+        输入：
+            pcd: open3d.geometry.PointCloud 对象
+            radius: 邻域搜索半径
+            k_neighbors: 用于计算邻域的最近邻点数量
+        输出：
+            features: 每个点的特征数组 [curvature, linearity, planarity]
+            scores: 每个点的重要性评分
+        """
+        points = np.asarray(pcd.points)
+        n_points = points.shape[0]
+        
+        # 使用KD树加速邻域搜索
+        nbrs = NearestNeighbors(n_neighbors=k_neighbors, algorithm='kd_tree').fit(points)
+        distances, indices = nbrs.kneighbors(points)
+        
+        # 初始化特征数组
+        curvatures = np.zeros(n_points)
+        linearities = np.zeros(n_points)
+        planarities = np.zeros(n_points)
+        
+        for i in range(n_points):
+            # 获取邻域点
+            neighbors = points[indices[i]]
+            
+            # 计算协方差矩阵
+            cov_matrix = np.cov(neighbors.T)
+            
+            # 特征值分解
+            eigenvalues = np.linalg.eigvalsh(cov_matrix)
+            eigenvalues = np.sort(eigenvalues)[::-1]  # 从大到小排序
+            
+            # 计算曲率、线性度、平面度
+            lambda1, lambda2, lambda3 = eigenvalues
+            total_variance = lambda1 + lambda2 + lambda3 + 1e-10  # 避免除以零
+            
+            curvatures[i] = lambda3 / total_variance
+            linearities[i] = (lambda1 - lambda2) / (lambda1 + 1e-10)
+            planarities[i] = (lambda2 - lambda3) / (lambda1 + 1e-10)
+        
+        # 计算重要性评分
+        w_c, w_l, w_p = 0.4, 0.4, 0.2  # 权重，可调优
+        scores = w_c * curvatures + w_l * linearities - w_p * planarities
+        
+        # 归一化评分到 [0, 1]
+        scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+        
+        features = np.vstack((curvatures, linearities, planarities)).T
+        return features, scores
+
+    def feature_aware_probability_sampling(self, pcd, scores, n_init=4096, beta=5.0):
+        """
+        基于特征重要性评分的概率采样。
+        输入：
+            pcd: open3d.geometry.PointCloud 对象
+            scores: 每个点的重要性评分
+            n_init: 初始采样点数
+            beta: 控制概率分布的参数
+        输出：
+            initial_indices: 初始采样点的索引
+        """
+        points = np.asarray(pcd.points)
+        n_points = points.shape[0]
+        
+        # 动态调整 n_init，确保不超过 n_points
+        n_init = min(n_init, n_points)
+        
+        # 计算采样概率
+        probs = np.exp(beta * scores) / np.sum(np.exp(beta * scores))
+        
+        # 加权随机采样
+        initial_indices = np.random.choice(n_points, size=n_init, replace=False, p=probs)
+        
+        return initial_indices
+
+    def farthest_point_sampling(self, points, n_sample, existing_indices=None):
+        """
+        基于最远点采样的均匀采样。
+        输入：
+            points: 点云数据 (N, 3)
+            n_sample: 目标采样点数
+            existing_indices: 已选点的索引（可选）
+        输出：
+            sampled_indices: 采样点的索引
+        """
+        n_points = points.shape[0]
+        
+        # 动态调整 n_sample，确保不超过 n_points
+        n_sample = min(n_sample, n_points)
+        
+        sampled_indices = []
+        
+        if existing_indices is not None:
+            sampled_indices = list(existing_indices)
+        else:
+            # 随机选择第一个点
+            sampled_indices.append(np.random.randint(n_points))
+        
+        while len(sampled_indices) < n_sample:
+            sampled_points = points[sampled_indices]
+            remaining_indices = np.setdiff1d(np.arange(n_points), sampled_indices)
+            remaining_points = points[remaining_indices]
+            
+            # 计算剩余点到已选点的最小距离
+            distances = cdist(remaining_points, sampled_points)
+            min_distances = np.min(distances, axis=1)
+            
+            # 选择距离最大的点
+            next_index = remaining_indices[np.argmax(min_distances)]
+            sampled_indices.append(next_index)
+        
+        return np.array(sampled_indices)
+
+    def feature_aware_adaptive_sampling(self, pcd, target_points=2048, radius=0.1, k_neighbors=30, beta=5.0):
+        """
+        完整的特征感知自适应采样方法。
+        输入：
+            pcd: open3d.geometry.PointCloud 对象
+            target_points: 目标采样点数 (默认 2048)
+            radius: 邻域搜索半径
+            k_neighbors: 邻域点数
+            beta: 概率分布控制参数
+        输出：
+            sampled_pcd: 采样后的点云
+            sampled_indices: 采样点的索引
+        """
+        points = np.asarray(pcd.points)
+        n_points = points.shape[0]
+        
+        # 如果目标点数超过总点数，直接返回原始点云
+        # if target_points >= n_points:
+        #     print(f"Warning: target_points ({target_points}) >= n_points ({n_points}). Returning original point cloud.")
+        #     return pcd, np.arange(n_points)
+        
+        # Step 1: 计算几何特征和重要性评分
+        features, scores = self.compute_geometric_features(pcd, radius, k_neighbors)
+        
+        # Step 2: 初始概率采样
+        initial_indices = self.feature_aware_probability_sampling(pcd, scores, n_init=4096, beta=beta)
+        initial_pcd = pcd.select_by_index(initial_indices)
+        
+        # Step 3: 特征优先精炼
+        initial_points = np.asarray(initial_pcd.points)
+        initial_scores = scores[initial_indices]
+        
+        # 按重要性评分排序，保留前 80% 的点
+        n_priority = int(target_points * 0.8)
+        priority_indices = np.argsort(initial_scores)[::-1][:n_priority]
+        priority_indices_global = initial_indices[priority_indices]
+        
+        # Step 4: 空间均匀性补充
+        n_uniform = target_points - n_priority
+        final_indices = self.farthest_point_sampling(np.asarray(pcd.points), target_points, priority_indices_global)
+        
+        # Step 5: 生成采样点云
+        sampled_pcd = pcd.select_by_index(final_indices)
+        
+        return sampled_pcd, final_indices
+
+
+
     def __getitem__(self, item):
         file_path = self.file_list[item]
         frame_id = file_path.split('/')[-1]
@@ -247,6 +416,12 @@ class Building3DDatasetOutput(Dataset):
         if self.transform is not None:
             points = self.transform(points)
 
+
+        # pcd = o3d.geometry.PointCloud()
+        # pcd.points = o3d.utility.Vector3dVector(points[:,:3])
+        # sampled_pcd, sampled_indices = self.feature_aware_adaptive_sampling(
+        #     pcd, target_points=2048, radius=0.1, k_neighbors=30, beta=5.0
+        # )
         if len(points) > self.npoint:
             idx = np.random.randint(0, len(points), self.npoint)
         else:
@@ -256,7 +431,7 @@ class Building3DDatasetOutput(Dataset):
 
 
         points = points[idx]
-
+        # points = points[sampled_indices]
         points, pt, centroid, max_distance = self.norm(points, self.color, self.nir, self.intensity)
         if self.fpfh:
             points = self.add_fpfh(points)

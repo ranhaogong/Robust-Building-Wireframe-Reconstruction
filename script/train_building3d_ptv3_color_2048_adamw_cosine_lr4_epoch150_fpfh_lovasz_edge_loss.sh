@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=3 \
+CUDA_VISIBLE_DEVICES=0 \
 python ../train_building3d.py \
 --data_path /data/haoran/dataset/building3d/Point2Roof \
 --scheduler cosine \

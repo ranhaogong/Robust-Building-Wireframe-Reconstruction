@@ -3,8 +3,8 @@ import numpy as np
 from tqdm import tqdm  # 导入 tqdm 库
 
 # 定义输入和输出文件夹路径
-input_folder = '/data/haoran/dataset/building3d/roof/Tallinn/train/xyz_clean'
-output_folder = '/data/haoran/dataset/building3d/roof/Tallinn/train/xyz_norm'
+input_folder = '/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_wavelet_edge/vis'
+output_folder = '/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_wavelet_edge/vis_norm'
 
 # 确保输出文件夹存在
 os.makedirs(output_folder, exist_ok=True)
@@ -42,7 +42,10 @@ for filename in tqdm(xyz_files, desc="归一化文件中"):
     xyz_data -= centroid
     max_distance = np.max(np.linalg.norm(xyz_data, axis=1))
     xyz_data /= max_distance
-
+    
+    # color_data = color_data / 255.0  # 将 RGB 值从 [0, 255] 归一化到 [0, 1]
+    # color_data = (color_data - color_data.mean(axis=0)) / color_data.std(axis=0)  # 标准化（均值为 0，标准差为 1）
+    
     # 将归一化后的数据写回文件
     with open(output_file_path, 'w') as outfile:
         for (x, y, z), (r, g, b) in zip(xyz_data, color_data):
