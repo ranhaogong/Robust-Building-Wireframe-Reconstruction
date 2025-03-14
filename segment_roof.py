@@ -230,8 +230,8 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
         merged_points_with_colors = np.vstack(merged_points_with_colors)
         
         # 保存合并后的点云（使用生成的颜色）
-        output_file = os.path.join(output_dir, f"{base_name}_merge.xyz")
-        save_xyz(output_file, merged_points_with_colors[:, :3], merged_points_with_colors[:, 3:])
+        # output_file = os.path.join(output_dir, f"{base_name}_merge.xyz")
+        # save_xyz(output_file, merged_points_with_colors[:, :3], merged_points_with_colors[:, 3:])
         
         # 单独保存每个簇到单独的 .xyz 文件（使用原始颜色）
         if input_colors is not None:
@@ -258,8 +258,8 @@ def main():
     # 设置路径
     # input_dir = "/data/haoran/dataset/building3d/tokyo/training/xyz"  # 输入 .xyz 文件的目录
     # output_dir = "/data/haoran/dataset/building3d/tokyo/training_seg/xyz"  # 输出单体屋顶的目录
-    input_dir = "/data/haoran/Point2Roof/tokyo_case"  # 输入 .xyz 文件的目录
-    output_dir = "/data/haoran/Point2Roof/tokyo_case"  # 输出单体屋顶的目录
+    input_dir = "/data/haoran/Point2Roof/tokyo_xyz"  # 输入 .xyz 文件的目录
+    output_dir = "/data/haoran/Point2Roof/tokyo_xyz_res"  # 输出单体屋顶的目录
     # 参数设置（适合归一化点云）
     distance_threshold = 0.03  # 空间距离阈值0.02
     height_threshold = 0.010  # 高度差异阈值0.005 15
