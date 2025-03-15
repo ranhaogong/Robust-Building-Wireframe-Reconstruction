@@ -1,6 +1,6 @@
 CUDA_VISIBLE_DEVICES=1 \
 python ../train_building3d.py \
---data_path /data/haoran/dataset/building3d/Point2Roof_tokyo \
+--data_path /data/haoran/dataset/building3d/Point2Roof_tokyo_seg \
 --scheduler cosine \
 --optimizer adamw \
 --max_ckpt_save_num 60 \

@@ -68,10 +68,11 @@ def denormalize_point_cloud(points, center, scale):
     points_denormalized = points * scale + center
     return points_denormalized
 
-def enhanced_euclidean_clustering(pcd, sample_points_count, distance_threshold=0.03, height_threshold=0.05):
+def enhanced_euclidean_clustering(pcd, sample_points_count, distance_threshold=0.03, height_threshold=0.05, is_training=True):
     """
-    增强的欧几里得聚类，同时对样本点云和标签拐点进行聚类
+    增强的欧几里得聚类，同时对样本点云和标签拐点进行聚类（训练集）或只对样本点云聚类（测试集）
     sample_points_count: 样本点云的点数，用于区分样本点和标签拐点
+    is_training: 如果为 False，则忽略标签拐点（测试集）
     返回：(cluster_sample_points, cluster_vertex_points, cluster_sample_indices, cluster_vertex_indices)
     """
     points = np.asarray(pcd.points)
@@ -116,16 +117,22 @@ def enhanced_euclidean_clustering(pcd, sample_points_count, distance_threshold=0
         sample_indices = [idx for idx in current_cluster if idx < sample_points_count]
         vertex_indices = [idx - sample_points_count for idx in current_cluster if idx >= sample_points_count]
         sample_points = cluster_points[[i for i, idx in enumerate(current_cluster) if idx < sample_points_count]]
-        vertex_points = cluster_points[[i for i, idx in enumerate(current_cluster) if idx >= sample_points_count]]
+        
+        # 对于测试集，忽略标签拐点
+        if is_training:
+            vertex_points = cluster_points[[i for i, idx in enumerate(current_cluster) if idx >= sample_points_count]]
+        else:
+            vertex_points = np.array([])  # 测试集不处理标签拐点
         
         clusters.append((sample_points, vertex_points, sample_indices, vertex_indices))
     
     return clusters
 
-def merge_small_clusters(clusters, min_points=20):
+def merge_small_clusters(clusters, min_points=20, is_training=True):
     """
     将点数小于 min_points 的簇中的每个点单独归并到最近的簇中
     clusters: (sample_points, vertex_points, sample_indices, vertex_indices)
+    is_training: 如果为 False，则忽略标签拐点（测试集）
     """
     if not clusters:
         return clusters
@@ -165,20 +172,22 @@ def merge_small_clusters(clusters, min_points=20):
             merged_clusters[nearest_cluster_idx][0] = np.vstack([merged_clusters[nearest_cluster_idx][0], point])
             merged_clusters[nearest_cluster_idx][2].append(sample_idx)
         
-        for point, vertex_idx in zip(small_vertex_points, small_vertex_indices):
-            min_dist = float('inf')
-            nearest_cluster_idx = -1
-            
-            # 计算点到每个大簇中最近点的距离
-            for i, kdtree in enumerate(large_cluster_kdtrees):
-                [k, idx, dist] = kdtree.search_knn_vector_3d(point, 1)
-                if dist[0] < min_dist:
-                    min_dist = dist[0]
-                    nearest_cluster_idx = i
-            
-            # 将标签拐点和索引添加到最近的大簇中
-            merged_clusters[nearest_cluster_idx][1] = np.vstack([merged_clusters[nearest_cluster_idx][1], point]) if len(merged_clusters[nearest_cluster_idx][1]) > 0 else np.array([point])
-            merged_clusters[nearest_cluster_idx][3].append(vertex_idx)
+        # 仅在训练集模式下处理标签拐点
+        if is_training:
+            for point, vertex_idx in zip(small_vertex_points, small_vertex_indices):
+                min_dist = float('inf')
+                nearest_cluster_idx = -1
+                
+                # 计算点到每个大簇中最近点的距离
+                for i, kdtree in enumerate(large_cluster_kdtrees):
+                    [k, idx, dist] = kdtree.search_knn_vector_3d(point, 1)
+                    if dist[0] < min_dist:
+                        min_dist = dist[0]
+                        nearest_cluster_idx = i
+                
+                # 将标签拐点和索引添加到最近的大簇中
+                merged_clusters[nearest_cluster_idx][1] = np.vstack([merged_clusters[nearest_cluster_idx][1], point]) if len(merged_clusters[nearest_cluster_idx][1]) > 0 else np.array([point])
+                merged_clusters[nearest_cluster_idx][3].append(vertex_idx)
     
     return merged_clusters
 
@@ -221,12 +230,14 @@ def visualize_point_cloud(points_with_colors):
     pcd.colors = o3d.utility.Vector3dVector(points_with_colors[:, 3:] / 255.0)
     o3d.visualization.draw_geometries([pcd])
 
-def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_dir, distance_threshold=0.03, height_threshold=0.05, min_points=20, point_threshold=10000):
-    """处理所有 .xyz 文件和 .obj 文件，同时进行聚类并保存分割结果"""
+def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_dir, distance_threshold=0.03, height_threshold=0.05, min_points=20, point_threshold=10000, is_training=True):
+    """处理所有 .xyz 文件和 .obj 文件，同时进行聚类并保存分割结果
+    is_training: 如果为 True，则同时分割数据和标签（训练集）；如果为 False，则只分割数据（测试集）
+    """
     if not os.path.exists(output_xyz_dir):
         os.makedirs(output_xyz_dir)
-    if not os.path.exists(output_obj_dir):
-        os.makedirs(output_obj_dir)
+    if is_training and not os.path.exists(output_obj_dir):
+        os.makedirs(output_obj_dir)  # 仅在训练集模式下创建标签输出目录
     
     xyz_files = [f for f in os.listdir(input_xyz_dir) if f.endswith('.xyz')]
     
@@ -237,11 +248,13 @@ def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_d
         
         # 加载样本点云和标签拐点
         sample_points, input_colors = load_xyz(input_xyz_path)
-        if not os.path.exists(input_obj_path):
+        if is_training and not os.path.exists(input_obj_path):
             print(f"Warning: No corresponding .obj file found for {xyz_file}")
             vertices, edges = np.array([]), []
-        else:
+        elif is_training:
             vertices, edges = load_obj(input_obj_path)
+        else:
+            vertices, edges = np.array([]), []  # 测试集忽略标签
         
         # 检查总点数
         total_points = len(sample_points)
@@ -249,14 +262,17 @@ def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_d
             # 点数不超过 threshold，直接保存原始文件
             output_xyz_file = os.path.join(output_xyz_dir, f"{base_name}_original.xyz")
             save_xyz(output_xyz_file, sample_points, input_colors)
-            if os.path.exists(input_obj_path):
+            if is_training and os.path.exists(input_obj_path):
                 output_obj_file = os.path.join(output_obj_dir, f"{base_name}_original.obj")
                 shutil.copy(input_obj_path, output_obj_file)
             # print(f"Point count {total_points} <= {point_threshold}, saved original files")
             continue
         
-        # 合并样本点云和标签拐点
-        combined_points = np.vstack([sample_points, vertices]) if len(vertices) > 0 else sample_points
+        # 合并样本点云和标签拐点（训练集）
+        if is_training and len(vertices) > 0:
+            combined_points = np.vstack([sample_points, vertices])
+        else:
+            combined_points = sample_points  # 测试集只使用样本点云
         combined_points_normalized, center, scale = normalize_point_cloud(combined_points)
         
         # 转换为 open3d 点云
@@ -266,14 +282,15 @@ def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_d
         # 使用增强的欧几里得聚类
         initial_clusters = enhanced_euclidean_clustering(pcd, sample_points_count=len(sample_points), 
                                                         distance_threshold=distance_threshold, 
-                                                        height_threshold=height_threshold)
+                                                        height_threshold=height_threshold,
+                                                        is_training=is_training)
         
         if len(initial_clusters) == 0:
             print(f"Warning: No clusters found for {xyz_file}")
             continue
         
         # 合并小簇
-        final_clusters = merge_small_clusters(initial_clusters, min_points=min_points)
+        final_clusters = merge_small_clusters(initial_clusters, min_points=min_points, is_training=is_training)
         
         if len(final_clusters) == 0:
             print(f"Warning: No clusters found after merging for {xyz_file}")
@@ -297,8 +314,8 @@ def process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_d
             save_xyz(output_xyz_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
             # print(f"Saved cluster {i} with {len(cluster_sample_points)} sample points to {output_xyz_file}")
             
-            # 处理标签拐点和边
-            if len(vertex_indices) > 0 and len(edges) > 0:
+            # 处理标签拐点和边（仅训练集）
+            if is_training and len(vertex_indices) > 0 and len(edges) > 0:
                 cluster_vertices_denormalized = denormalize_point_cloud(cluster_vertex_points, center, scale)
                 vertex_map = {idx: new_idx for new_idx, idx in enumerate(vertex_indices)}
                 cluster_edges = [[vertex_map[edge[0]], vertex_map[edge[1]]] 
@@ -316,10 +333,16 @@ def main():
     set_random_seed(seed=42)
     
     # 设置路径
-    input_xyz_dir = "/data/haoran/dataset/building3d/tokyo/training/xyz"  # 输入 .xyz 文件的目录
-    input_obj_dir = "/data/haoran/dataset/building3d/tokyo/training/wireframe"  # 输入 .obj 文件的目录
-    output_xyz_dir = "/data/haoran/dataset/building3d/tokyo/training_seg/xyz"  # 输出分割点云的目录
-    output_obj_dir = "/data/haoran/dataset/building3d/tokyo/training_seg/wireframe"  # 输出分割标签的目录
+    # 示例 1：训练集（is_training=True）
+    input_xyz_dir_train = "/data/haoran/dataset/building3d/tokyo/training/xyz"  # 输入 .xyz 文件的目录
+    input_obj_dir_train = "/data/haoran/dataset/building3d/tokyo/training/wireframe"  # 输入 .obj 文件的目录
+    output_xyz_dir_train = "/data/haoran/dataset/building3d/tokyo/training_seg/xyz"  # 输出分割点云的目录
+    output_obj_dir_train = "/data/haoran/dataset/building3d/tokyo/training_seg/wireframe"  # 输出分割标签的目录
+    
+    # 示例 2：测试集（is_training=False）
+    input_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/xyz"  # 输入 .xyz 文件的目录
+    input_obj_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/wireframe"  # 输入 .obj 文件的目录（测试集不使用）
+    output_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing_seg/xyz"  # 输出分割点云的目录
     
     # 参数设置
     distance_threshold = 0.03  # 空间距离阈值
@@ -327,8 +350,15 @@ def main():
     min_points = 20  # 每个簇的最小点数
     point_threshold = 13000  # 点数阈值，超过此值才进行聚类
     
-    process_xyz_files(input_xyz_dir, input_obj_dir, output_xyz_dir, output_obj_dir, 
-                      distance_threshold, height_threshold, min_points, point_threshold)
+    # 处理训练集
+    # print("Processing training set...")
+    # process_xyz_files(input_xyz_dir_train, input_obj_dir_train, output_xyz_dir_train, output_obj_dir_train, 
+    #                   distance_threshold, height_threshold, min_points, point_threshold, is_training=True)
+    
+    # 处理测试集
+    print("Processing testing set...")
+    process_xyz_files(input_xyz_dir_test, input_obj_dir_test, output_xyz_dir_test, None, 
+                      distance_threshold, height_threshold, min_points, point_threshold, is_training=False)
 
 if __name__ == "__main__":
     main()
