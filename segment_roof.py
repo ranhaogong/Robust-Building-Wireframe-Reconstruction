@@ -230,26 +230,26 @@ def process_xyz_files(input_dir, output_dir, distance_threshold=0.03, height_thr
         merged_points_with_colors = np.vstack(merged_points_with_colors)
         
         # 保存合并后的点云（使用生成的颜色）
-        # output_file = os.path.join(output_dir, f"{base_name}_merge.xyz")
-        # save_xyz(output_file, merged_points_with_colors[:, :3], merged_points_with_colors[:, 3:])
+        output_file = os.path.join(output_dir, f"{base_name}_merge.xyz")
+        save_xyz(output_file, merged_points_with_colors[:, :3], merged_points_with_colors[:, 3:])
         
         # 单独保存每个簇到单独的 .xyz 文件（使用原始颜色）
-        if input_colors is not None:
-            for i, (cluster, orig_indices) in enumerate(final_clusters):
-                cluster_denormalized = denormalize_point_cloud(cluster, center, scale)
-                # 根据原始索引提取原始颜色
-                cluster_colors = input_colors[orig_indices]
-                cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
-                output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
-                save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
-        else:
-            # 如果输入没有颜色，则使用生成的颜色
-            for i, (cluster, _) in enumerate(final_clusters):
-                cluster_denormalized = denormalize_point_cloud(cluster, center, scale)
-                cluster_colors = np.tile(vis_colors[i], (len(cluster_denormalized), 1))
-                cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
-                output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
-                save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
+        # if input_colors is not None:
+        #     for i, (cluster, orig_indices) in enumerate(final_clusters):
+        #         cluster_denormalized = denormalize_point_cloud(cluster, center, scale)
+        #         # 根据原始索引提取原始颜色
+        #         cluster_colors = input_colors[orig_indices]
+        #         cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
+        #         output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
+        #         save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
+        # else:
+        #     # 如果输入没有颜色，则使用生成的颜色
+        #     for i, (cluster, _) in enumerate(final_clusters):
+        #         cluster_denormalized = denormalize_point_cloud(cluster, center, scale)
+        #         cluster_colors = np.tile(vis_colors[i], (len(cluster_denormalized), 1))
+        #         cluster_with_colors = np.hstack((cluster_denormalized, cluster_colors))
+        #         output_file = os.path.join(output_dir, f"{base_name}_cluster_{i}.xyz")
+        #         save_xyz(output_file, cluster_with_colors[:, :3], cluster_with_colors[:, 3:])
 
 def main():
     # 设置随机种子

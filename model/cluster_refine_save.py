@@ -66,6 +66,23 @@ class ClusterRefineNet(nn.Module):
         offset_pts[pts_score > score_thresh] += offset[pts_score > score_thresh]
         # pts_cluster: Nx3
         # TODO: 保存offset_pts到/data/haoran/Point2Roof/cluster_refine_res
+        save_dir = '/data/haoran/Point2Roof/cluster_refine_res'
+        os.makedirs(save_dir, exist_ok=True)  # 创建目录（如果不存在）
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 添加时间戳
+        for b in range(offset_pts.shape[0]):
+            filename = os.path.join(save_dir, f'batch_{b}_{timestamp}.xyz')
+            pts = offset_pts[b].detach().cpu().numpy()  # [N, 3]
+            scores = pts_score[b].detach().cpu().numpy()  # [N]
+            
+            with open(filename, 'w') as f:
+                for i, pt in enumerate(pts):
+                    # 根据 pts_score 设置颜色：红色 (255, 0, 0) 或 白色 (255, 255, 255)
+                    if scores[i] > score_thresh:
+                        color = "255 0 0"  # 红色
+                    else:
+                        color = "255 255 255"  # 白色
+                    f.write(f"{pt[0]:.6f} {pt[1]:.6f} {pt[2]:.6f} {color}\n")
         pts_cluster = offset_pts.new_ones(offset_pts.shape) * -10
         pts_cluster[pts_score > score_thresh] = offset_pts[pts_score > score_thresh]
         cluster_idx = dbscan_cluster(self.model_cfg.Cluster.eps, self.model_cfg.Cluster.min_pts, pts_cluster)

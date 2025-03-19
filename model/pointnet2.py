@@ -14,7 +14,6 @@ import spconv.pytorch as spconv
 import torch_scatter
 from timm.models.layers import DropPath
 from collections import OrderedDict
-from pytorch_wavelets import DWT1DForward, DWT1DInverse
 
 try:
     import flash_attn
@@ -22,104 +21,6 @@ except ImportError:
     flash_attn = None
 
 from .serialization import encode
-
-
-class WaveletZBranch(nn.Module):
-    def __init__(self, out_channel=64, levels=3, wavelet='db1'):
-        super().__init__()
-        self.levels = levels
-        self.wavelet = wavelet
-        
-        # 定义 1D 小波变换 (全 GPU)
-        self.dwt = DWT1DForward(
-            J=levels,           # 分解层数
-            wave=wavelet,       # 小波基，如 'db1', 'haar', 'sym4'
-            mode='symmetric'    # 边界处理方式
-        )
-        
-        # 多尺度特征提取器
-        self.feature_extractors = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv1d(1, 32, 1),
-                nn.BatchNorm1d(32),
-                nn.ReLU()
-            ) for _ in range(levels + 1)  # levels 个细节系数 + 1 个近似系数
-        ])
-        
-        # 残差投影
-        self.residual_proj = nn.Sequential(
-            nn.Conv1d(1, out_channel, 1),
-            nn.BatchNorm1d(out_channel)
-        )
-        
-        # 特征融合
-        self.fusion = nn.Sequential(
-            nn.Conv1d(32 * (levels + 1), 128, 1),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Conv1d(128, out_channel, 1),
-            nn.BatchNorm1d(out_channel)
-        )
-
-    def forward(self, z_coord):
-        # z_coord: [B, 1, N]
-        B, _, N = z_coord.shape
-        
-        # 小波分解 (全 GPU)
-        # torchwavelets 输入格式要求 [B, C, L], 输出 yl (低频), yh (高频列表)
-        coeffs = self.dwt(z_coord)  # yl: [B, 1, N//2^J], yh: list of [B, 1, N//2^j]
-        yl = coeffs[0]  # 近似系数
-        yh = coeffs[1]  # 细节系数列表，从高频到低频
-        
-        # 组合所有系数
-        wavelet_coeffs = [yl] + yh[::-1]  # [cA, cD_J, ..., cD_1]
-        
-        # 提取特征并上采样到原始长度
-        features = []
-        for i, coeff in enumerate(wavelet_coeffs):
-            target_len = N
-            coeff_len = coeff.shape[-1]
-            if coeff_len < target_len:
-                coeff = F.interpolate(coeff, size=target_len, mode='linear', align_corners=False)
-            elif coeff_len > target_len:
-                coeff = coeff[:, :, :target_len]
-            feat = self.feature_extractors[i](coeff)  # [B, 32, N]
-            features.append(feat)
-        
-        # 拼接多尺度特征
-        multi_scale_feat = torch.cat(features, dim=1)  # [B, 32*(levels+1), N]
-        
-        # 融合特征
-        fused_fea = self.fusion(multi_scale_feat)  # [B, 64, N]
-        
-        # 残差连接
-        residual = self.residual_proj(z_coord)  # [B, 64, N]
-        z_fea = fused_fea + residual
-        z_fea = F.relu(z_fea)
-        
-        return z_fea
-
-class EfficientCrossAttention(nn.Module):
-    def __init__(self, dim=64, num_heads=4, window_size=128):
-        super().__init__()
-        self.window_size = window_size
-        self.attn = nn.MultiheadAttention(dim, num_heads)
-        self.norm = nn.BatchNorm1d(dim)
-        self.proj = nn.Conv1d(dim, dim, 1)
-    
-    def forward(self, main_fea, z_fea):
-        B, C, N = main_fea.shape
-        main_fea = main_fea.transpose(1, 2)  # [B, N, C]
-        z_fea = z_fea.transpose(1, 2)
-        # 分窗处理
-        fused = []
-        for i in range(0, N, self.window_size):
-            main_win = main_fea[:, i:i+self.window_size, :]
-            z_win = z_fea[:, i:i+self.window_size, :]
-            attn_out, _ = self.attn(main_win, z_win, z_win)
-            fused.append(attn_out)
-        fused_fea = torch.cat(fused, dim=1)  # [B, N, C]
-        return self.proj(self.norm(fused_fea.transpose(1, 2)))
 
 class PointNet2(nn.Module):
     def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False, fpfh=False, lovasz=False):
@@ -164,8 +65,6 @@ class PointNet2(nn.Module):
             pdnorm_affine=True,
             pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"),
         )
-        self.z_branch = WaveletZBranch(out_channel=64, levels=3, wavelet='db1')
-        self.cross_attention = EfficientCrossAttention(dim=64, num_heads=4, window_size=128)
         self.drop = nn.Dropout(0.5)
         self.shared_fc = Conv1dBN(64, 64)
         self.offset_fc = nn.Conv1d(64, 3, 1)
@@ -231,10 +130,8 @@ class PointNet2(nn.Module):
         }
         point = self.ptv3(point_dict)  # 通过 PointTransformerV3
         l0_fea = point.feat.view(batch_size, n_pts, point.feat.size(1)).transpose(1, 2)  # torch.Size([65536, 64])
-        z_coord = xyz[:, :, 2:3].transpose(1, 2)  # [B, 1, N]
-        z_fea = self.z_branch(z_coord)  # [B, 64, N]
-        fused_fea = self.cross_attention(l0_fea, z_fea)
-        x = self.drop(self.shared_fc(fused_fea))
+
+        x = self.drop(self.shared_fc(l0_fea))
         pred_offset = self.offset_fc(x).permute(0, 2, 1)
         pred_cls = self.cls_fc(x).permute(0, 2, 1)  # BxNx1
         if self.training:

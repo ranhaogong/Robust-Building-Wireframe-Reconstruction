@@ -39,7 +39,7 @@ def save_colored_point_cloud(xyz, cls, output_dir, batch_size=64):
         print(f"Point cloud {i} saved to {output_file}")
 
 class PointNet2(nn.Module):
-    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False):
+    def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False, fpfh=False, lovasz=False):
         super().__init__()
         self.model_cfg = model_cfg
         self.f = True
@@ -92,7 +92,7 @@ class PointNet2(nn.Module):
         record assigned candidated vectors
         '''
         if self.f:
-            save_path = "/data/haoran/Point2Roof/assign_target_building3d_train"
+            save_path = "/data/haoran/Point2Roof/assign_target_building3d_train_tokyo"
             save_colored_point_cloud(xyz, cls, save_path)
             self.f = False
         

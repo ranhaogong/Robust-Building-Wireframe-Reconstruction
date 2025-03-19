@@ -340,9 +340,9 @@ def main():
     output_obj_dir_train = "/data/haoran/dataset/building3d/tokyo/training_seg/wireframe"  # 输出分割标签的目录
     
     # 示例 2：测试集（is_training=False）
-    input_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/xyz"  # 输入 .xyz 文件的目录
+    input_xyz_dir_test = "/data/haoran/Point2Roof/tokyo_xyz"  # 输入 .xyz 文件的目录
     input_obj_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/wireframe"  # 输入 .obj 文件的目录（测试集不使用）
-    output_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing_seg/xyz"  # 输出分割点云的目录
+    output_xyz_dir_test = "/data/haoran/Point2Roof/tokyo_xyz_res"  # 输出分割点云的目录
     
     # 参数设置
     distance_threshold = 0.03  # 空间距离阈值

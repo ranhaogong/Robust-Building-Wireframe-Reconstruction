@@ -266,6 +266,36 @@ class BallCenterQuery(Function):
 
 ball_center_query = BallCenterQuery.apply
 
+class MultiTargetBallQuery(Function):
+    @staticmethod
+    def forward(ctx, radius: float, max_targets: int, points: torch.Tensor, gvs: torch.Tensor) -> torch.Tensor:
+        """
+        :param ctx:
+        :param radius: float, radius of the balls
+        :param max_targets: int, maximum number of ground truth points per candidate point
+        :param points: (B, N, 3) xyz coordinates of candidate points
+        :param gvs: (B, V, 3) ground truth vertices
+        :return:
+            idx: (B, N, max_targets) tensor with indices of gvs within radius of each point
+        """
+        points = points.contiguous()
+        gvs = gvs.contiguous()
+
+        B, N, _ = points.size()  # 候选点数量
+        V = gvs.size(1)          # 真实拐点数量
+        idx = torch.cuda.IntTensor(B, N, max_targets).zero_().fill_(-1)  # 初始化为 -1
+
+        # 调用高效的 CUDA 实现
+        pc_util.ball_query_wrapper(B, N, V, radius, max_targets, points, gvs, idx)
+        ctx.mark_non_differentiable(idx)
+        return idx
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        return ()
+
+multi_target_ball_query = MultiTargetBallQuery.apply
+
 
 import numpy as np
 
