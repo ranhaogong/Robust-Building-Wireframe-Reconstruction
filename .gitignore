@@ -12,3 +12,4 @@ assign_target_building3d_train_1024/
 assign_target_building3d_train_2048/
 cluster_refine_res/
 assign_target_building3d_train_tokyo/
+cluster_refine_kmeans_res/
