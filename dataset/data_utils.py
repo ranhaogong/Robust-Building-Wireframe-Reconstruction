@@ -73,7 +73,7 @@ def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=0, lo
         shuffle=training)
     return dataloader
 
-def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False):
+def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
     path += '/train_all.txt' if training else '/test_all.txt'
 
     if training:
@@ -81,7 +81,7 @@ def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers
     else:
         trasform = None
 
-    dataset = Building3DDatasetOutput(path, trasform, data_cfg, logger, color, nir, intensity, fpfh)
+    dataset = Building3DDatasetOutput(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd)
     dataloader = DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, num_workers=workers, collate_fn=dataset.collate_batch,
         shuffle=training)

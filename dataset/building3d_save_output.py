@@ -11,6 +11,10 @@ from pathlib import Path
 from tqdm import tqdm  # 导入 tqdm 库
 import time
 
+import torch
+from torch_cluster import knn
+import torch.sparse
+
 def read_ply(pts_file):
     # 使用 open3d 读取 ply 文件
     pcd = o3d.io.read_point_cloud(pts_file)
@@ -98,7 +102,7 @@ def writePoints(points, clsRoad):
 
 
 class Building3DDatasetOutput(Dataset):
-    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False):
+    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
         with open(data_path, 'r') as f:
             self.file_list = f.readlines()
         self.file_list = [f.strip() for f in self.file_list]
@@ -119,11 +123,114 @@ class Building3DDatasetOutput(Dataset):
 
         self.fpfh = fpfh
         
+        self.mrgd = mrgd
+        
         if logger is not None:
             logger.info('Total samples: %d' % len(self))
 
     def __len__(self):
         return len(self.file_list)
+    
+    def compute_mrgd_features(self, points, device='cuda'):
+        """保留谱分析的优化 mrgd 计算"""
+        # 输入转为 GPU 张量
+        coord = torch.from_numpy(points[:, :3]).float().to(device)
+        N = coord.size(0)
+        batch = torch.zeros(N, dtype=torch.long, device=device)
+
+        # 单次 k-NN 计算 (k=32)
+        edge_l = knn(coord, coord, k=32, batch_x=batch, batch_y=batch)  # [2, N*32]
+        edge_l = edge_l[:, :N * 32]  # 强制截取
+        edge_s = edge_l[:, ::4][:,:N * 8]  # 从 k=32 提取 k=8
+
+        # 计算法向量
+        n_s = self.compute_normals_torch(coord, edge_s[1], k=8)
+        n_l = self.compute_normals_torch(coord, edge_l[1], k=32)
+
+        # 曲率
+        k_s = self.compute_curvature(coord, edge_s[1], n_s, k=8)
+        k_l = self.compute_curvature(coord, edge_l[1], n_l, k=32)
+
+        # 高度方差
+        z = coord[:, 2]
+        sigma_s = torch.sqrt(((z[edge_s[1]] - z[edge_s[0]]) ** 2).view(N, 8).mean(dim=1))
+        sigma_l = torch.sqrt(((z[edge_l[1]] - z[edge_l[0]]) ** 2).view(N, 32).mean(dim=1))
+
+        # 谱特征（优化后的逐点谱分析）
+        S_s = self.compute_graph_spectral_torch(coord, edge_s, k=8, m=3)
+        S_l = self.compute_graph_spectral_torch(coord, edge_l, k=32, m=3)
+
+        # 非线性对比核
+        sigma = 0.1
+        K_c = torch.exp(-((k_s - k_l) ** 2) / (2 * sigma ** 2))
+        K_h = torch.exp(-((sigma_s - sigma_l) ** 2) / (2 * sigma ** 2))
+        K_s = torch.exp(-((S_s - S_l) ** 2) / (2 * sigma ** 2))
+
+        # mrgd 特征
+        mrgd = torch.stack([K_c * k_s, K_h * sigma_s, K_s * S_s], dim=1)  # [N, 3]
+
+        # Min-Max 归一化
+        mrgd_min = mrgd.min(dim=0, keepdim=True)[0]
+        mrgd_max = mrgd.max(dim=0, keepdim=True)[0]
+        mrgd_normalized = (mrgd - mrgd_min) / (mrgd_max - mrgd_min + 1e-8)
+
+        return mrgd_normalized.cpu().numpy()
+
+    def compute_normals_torch(self, coord, indices, k):
+        """PyTorch 原生法向量计算"""
+        N = coord.size(0)
+        points = coord[indices].view(N, k, 3)  # [N, k, 3]
+        centered = points - points.mean(dim=1, keepdim=True)  # [N, k, 3]
+        cov = torch.bmm(centered.transpose(1, 2), centered) / k  # [N, 3, 3]
+        _, eig_vecs = torch.linalg.eigh(cov)  # [N, 3, 3]
+        normals = eig_vecs[:, :, 0]  # 最小特征向量 [N, 3]
+        normals = normals * torch.sign((normals * coord).sum(dim=1, keepdim=True))
+        return normals
+
+    def compute_curvature(self, coord, indices, normals, k):
+        """简化的曲率计算"""
+        N = coord.size(0)
+        points = coord[indices].view(N, k, 3)  # [N, k, 3]
+        vectors = points - coord.unsqueeze(1)  # [N, k, 3]
+        proj_dist = (vectors * normals.unsqueeze(1)).sum(dim=-1)  # [N, k]
+        curvature = proj_dist.abs().mean(dim=1)  # [N]
+        return curvature / (curvature.max() + 1e-8)
+
+    def compute_graph_spectral_torch(self, coord, edge_index, k, m=3):
+        """GPU 加速的逐点谱分析"""
+        N = coord.size(0)
+        row, col = edge_index
+
+        # 构建稀疏邻接矩阵（GPU）
+        values = torch.ones(row.size(0), device=coord.device, dtype=torch.float)
+        adj = torch.sparse_coo_tensor(torch.stack([row, col]), values, (N, N))
+        
+        # 计算度矩阵
+        degree = torch.sparse.sum(adj, dim=1).to_dense()  # [N]
+        D = torch.sparse_coo_tensor(
+            torch.stack([torch.arange(N, device=coord.device), torch.arange(N, device=coord.device)]),
+            degree,
+            (N, N)
+        )
+
+        # 拉普拉斯矩阵 L = D - A
+        L = D - adj
+
+        # 近似特征值分解（使用幂迭代法取前 m 个特征值）
+        def power_iteration(L, num_iter=10):
+            v = torch.randn(N, m, device=coord.device)
+            v = v / torch.norm(v, dim=0, keepdim=True)
+            for _ in range(num_iter):
+                v = L @ v  # 稀疏矩阵乘法
+                v = v / (torch.norm(v, dim=0, keepdim=True) + 1e-8)
+            return v
+
+        eigenvectors = power_iteration(L)  # [N, m]
+        
+        # 计算谱能量（逐点）
+        spectral_energy = torch.sum(eigenvectors ** 2, dim=1)  # [N]
+        return spectral_energy / (spectral_energy.max() + 1e-8)
+    
     def compute_fpfh_features(self, points):
         # Convert points to open3d format
         pcd = o3d.geometry.PointCloud()
@@ -187,6 +294,11 @@ class Building3DDatasetOutput(Dataset):
         # Now append the normalized selected FPFH features to the point cloud data
         points = np.hstack((points, selected_fpfh_features))  # Add the selected and normalized FPFH features to the point cloud data
 
+        return points
+    
+    def add_mrgd(self, points):
+        mrgd_features = self.compute_mrgd_features(points)
+        points = np.hstack((points, mrgd_features)) 
         return points
         
     def norm(self, points, color=False, nir=False, intensity=False):
@@ -435,6 +547,8 @@ class Building3DDatasetOutput(Dataset):
         points, pt, centroid, max_distance = self.norm(points, self.color, self.nir, self.intensity)
         if self.fpfh:
             points = self.add_fpfh(points)
+        if self.mrgd:
+            points = self.add_mrgd(points)
         data_dict = {'points': points, 'frame_id': frame_id, 'minMaxPt': pt, 'centroid': centroid, 'max_distance': max_distance}
         return data_dict
 

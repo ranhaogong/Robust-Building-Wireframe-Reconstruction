@@ -57,7 +57,11 @@ def read_pts(pts_file, color=False, nir=False, intensity=False):
         pts = data[:, [0, 1, 2, 3, 4, 5, 6, 7]]  # x, y, z, r, g, b, nir, intensity
         return pts
         
-
+def rotz(t):
+    """Rotation about the z-axis."""
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
 
 
 def load_obj(obj_file):
@@ -376,6 +380,23 @@ class Building3DDataset(Dataset):
         np.random.shuffle(idx)
         points = points[idx]
         vectors, edges = load_obj(self.file_list[item] + '/polygon.obj')
+        
+        # data augment
+        if np.random.random() > 0.5:
+            # Flipping along the YZ plane
+            points[:, 0] = -1 * points[:, 0]
+            vectors[:, 0] = -1 * vectors[:, 0]
+
+        if np.random.random() > 0.5:
+            # Flipping along the XZ plane
+            points[:, 1] = -1 * points[:, 1]
+            vectors[:, 1] = -1 * vectors[:, 1]
+
+        # Rotation along up-axis/Z-axis
+        rot_angle = (np.random.random() * np.pi / 18) - np.pi / 36  # -5 ~ +5 degree
+        rot_mat = rotz(rot_angle)
+        points[:, 0:3] = np.dot(points[:, 0:3], np.transpose(rot_mat))
+        vectors[:, 0:3] = np.dot(vectors[:, 0:3], np.transpose(rot_mat))
         
         points, vectors, pt, centroid, max_distance = self.norm(points, vectors, self.color, self.nir, self.intensity)
         if self.fpfh:
