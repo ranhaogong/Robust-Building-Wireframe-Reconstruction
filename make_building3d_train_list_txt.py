@@ -34,8 +34,8 @@ def write_folder_paths(input_dir, output_file):
 
 def main():
     # 设置输入和输出路径
-    input_dir = "/data/haoran/dataset/building3d/Point2Roof_tokyo_seg"
-    output_file = "/data/haoran/dataset/building3d/Point2Roof_tokyo_seg/train_all.txt"
+    input_dir = "/data/haoran/dataset/building3d/Point2Roof_Entry"
+    output_file = "/data/haoran/dataset/building3d/Point2Roof_Entry/train_all.txt"
     
     # 执行写入操作
     write_folder_paths(input_dir, output_file)

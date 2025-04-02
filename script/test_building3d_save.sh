@@ -1,6 +1,6 @@
-CUDA_VISIBLE_DEVICES=1 \
+CUDA_VISIBLE_DEVICES=2 \
 python ../test_save_building3d.py \
 --data_path /data/haoran/dataset/building3d/Point2Roof \
 --cfg_file ../cfg/model_cfg_color_fpfh_lovasz_2048_dbscan_003_cross_attention.yaml \
---test_tag building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_edge_dbscan_003_cross_attention \
+--test_tag building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_edge_dbscan_003_cross_attention_batchsize_32_noflushattention \
 --batch_size 64
