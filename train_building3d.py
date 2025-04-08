@@ -64,7 +64,7 @@ def main():
 
     logger.info('**********************Start logging**********************')
 
-    train_loader = build_dataloader_Building3DDataset(args.data_path, args.batch_size, cfg.DATA, training=True, logger=logger, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), mrgd=getattr(cfg, 'MRGD', False))
+    train_loader = build_dataloader_Building3DDataset(args.data_path, args.batch_size, cfg.DATA, training=True, logger=logger, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), mrgd=getattr(cfg, 'MRGD', False), p2rf=getattr(cfg, 'P2RF', False))
 
     net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), lovasz=getattr(cfg, 'LOVASZ', False), mrgd=getattr(cfg, 'MRGD', False))
     net.cuda()

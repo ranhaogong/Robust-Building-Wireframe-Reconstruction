@@ -88,6 +88,24 @@ def load_obj(obj_file):
     edges = np.array(list(edges))
     return vs, edges
 
+def load_obj_p2rf(obj_file):
+    vs, edges = [], set()
+    with open(obj_file, 'r') as f:
+        lines = f.readlines()
+    for f in lines:
+        vals = f.strip().split(' ')
+        if vals[0] == 'v':
+            vs.append(vals[1:])
+        else:
+            obj_data = np.array(vals[1:], dtype=np.int).reshape(-1, 1) - 1
+            idx = np.arange(len(obj_data)) - 1
+            cur_edge = np.concatenate([obj_data, obj_data[idx]], -1)
+            [edges.add(tuple(sorted(e))) for e in cur_edge]
+            
+    vs = np.array(vs, dtype=np.float64)
+    edges = np.array(list(edges))
+    return vs, edges
+
 def writePoints(points, clsRoad):
     with open(clsRoad, 'w+') as file1:
         for i in range(len(points)):
@@ -102,7 +120,7 @@ def writePoints(points, clsRoad):
 
 
 class Building3DDatasetOutput(Dataset):
-    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
+    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False, mrgd=False, p2rf=False):
         with open(data_path, 'r') as f:
             self.file_list = f.readlines()
         self.file_list = [f.strip() for f in self.file_list]
@@ -124,6 +142,8 @@ class Building3DDatasetOutput(Dataset):
         self.fpfh = fpfh
         
         self.mrgd = mrgd
+
+        self.p2rf = p2rf
         
         if logger is not None:
             logger.info('Total samples: %d' % len(self))
@@ -300,7 +320,66 @@ class Building3DDatasetOutput(Dataset):
         mrgd_features = self.compute_mrgd_features(points)
         points = np.hstack((points, mrgd_features)) 
         return points
-        
+    
+    def norm_p2rf(self, points, vectors, color=False, nir=False, intensity=False):
+        if color == False and nir == False and intensity == False:
+            min_pt, max_pt = np.min(points, axis=0), np.max(points, axis=0)
+            maxXYZ = np.max(max_pt)
+            minXYZ = np.min(min_pt)
+            min_pt[:] = minXYZ
+            max_pt[:] = maxXYZ
+            centroid = np.mean(points, axis=0)
+            points -= centroid
+            max_distance = np.max(np.linalg.norm(points, axis=1))
+            points /= max_distance
+            vectors -= centroid
+            vectors /= max_distance
+            points = points.astype(np.float32)
+            vectors = vectors.astype(np.float32)
+            max_pt = max_pt.astype(np.float32)
+            pt = np.concatenate(( np.expand_dims(min_pt, 0),  np.expand_dims(max_pt, 0)), axis = 0)
+        else:
+            # 只对 points 的前三列 xyz 进行标准化
+            xyz = points[:, :3]  # 提取前三列
+            min_pt_xyz = np.min(xyz, axis=0)
+            max_pt_xyz = np.max(xyz, axis=0)
+            maxXYZ = np.max(max_pt_xyz)
+            minXYZ = np.min(min_pt_xyz)
+            min_pt_xyz[:] = minXYZ
+            max_pt_xyz[:] = maxXYZ
+            centroid_xyz = np.mean(xyz, axis=0)
+            xyz -= centroid_xyz
+            max_distance_xyz = np.max(np.linalg.norm(xyz, axis=1))
+            xyz /= max_distance_xyz
+
+            # 将标准化后的 xyz 替换回 points
+            points[:, :3] = xyz
+
+            # 对 vectors 进行同样的标准化
+            vectors -= centroid_xyz
+            vectors /= max_distance_xyz
+            
+            # 对rgb标准化
+            if color == True:
+                color_data = points[:, 3:6]  # 提取 RGB 数据（假设 points 的 3:6 列是 RGB 值）
+                color_data = color_data / 255.0  # 将 RGB 值从 [0, 255] 归一化到 [0, 1]
+                color_data = (color_data - color_data.mean(axis=0)) / color_data.std(axis=0)  # 标准化（均值为 0，标准差为 1）
+                points[:, 3:6] = color_data  # 将标准化后的 RGB 值写回 points
+
+            # 转换为 float32 类型
+            points = points.astype(np.float32)
+            vectors = vectors.astype(np.float32)
+            min_pt_xyz = min_pt_xyz.astype(np.float32)
+            max_pt_xyz = max_pt_xyz.astype(np.float32)
+
+            # 生成 pt
+            pt = np.concatenate((np.expand_dims(min_pt_xyz, 0), np.expand_dims(max_pt_xyz, 0)), axis=0)
+
+            # 更新 centroid 和 max_distance
+            centroid = centroid_xyz
+            max_distance = max_distance_xyz
+
+        return points, vectors, pt, centroid, max_distance
     def norm(self, points, color=False, nir=False, intensity=False):
         if color == False and nir == False and intensity == False:
             min_pt, max_pt = np.min(points, axis=0), np.max(points, axis=0)
@@ -519,7 +598,9 @@ class Building3DDatasetOutput(Dataset):
         file_path = self.file_list[item]
         frame_id = file_path.split('/')[-1]
         file_form = file_path.split('.')[-1]
-        if file_form == 'ply':
+        if self.p2rf:
+            points = read_pts(file_path + '/points.xyz')
+        elif file_form == 'ply':
             points = read_ply(file_path)
         elif file_form == 'xyz':
             points = read_pts(file_path, self.color, self.nir, self.intensity)
@@ -544,12 +625,19 @@ class Building3DDatasetOutput(Dataset):
 
         points = points[idx]
         # points = points[sampled_indices]
-        points, pt, centroid, max_distance = self.norm(points, self.color, self.nir, self.intensity)
+        if self.p2rf:
+            vectors, edges = load_obj_p2rf(self.file_list[item] + '/polygon.obj')
+            points, vectors, pt, centroid, max_distance = self.norm_p2rf(points, vectors, self.color, self.nir, self.intensity)
+        else:
+            points, pt, centroid, max_distance = self.norm(points, self.color, self.nir, self.intensity)
         if self.fpfh:
             points = self.add_fpfh(points)
         if self.mrgd:
             points = self.add_mrgd(points)
         data_dict = {'points': points, 'frame_id': frame_id, 'minMaxPt': pt, 'centroid': centroid, 'max_distance': max_distance}
+        if self.p2rf:
+            data_dict['vectors'] = vectors
+            data_dict['edges'] = edges
         return data_dict
 
     @staticmethod
@@ -564,6 +652,12 @@ class Building3DDatasetOutput(Dataset):
             try:
                 if key == 'points':
                     ret[key] = np.concatenate(val, axis=0).reshape([batch_size, -1, val[0].shape[-1]])
+                elif key in ['vectors', 'edges']:
+                    max_vec = max([len(x) for x in val])
+                    batch_vecs = np.ones((batch_size, max_vec, val[0].shape[-1]), dtype=np.float32) * -1e1
+                    for k in range(batch_size):
+                        batch_vecs[k, :val[k].__len__(), :] = val[k]
+                    ret[key] = batch_vecs
                 elif key in ['frame_id']:
                     ret[key] = val
                 elif key in ['minMaxPt']:

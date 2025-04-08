@@ -79,6 +79,24 @@ def load_obj(obj_file):
     edges = np.array(list(edges))
     return vs, edges
 
+def load_obj_p2rf(obj_file):
+    vs, edges = [], set()
+    with open(obj_file, 'r') as f:
+        lines = f.readlines()
+    for f in lines:
+        vals = f.strip().split(' ')
+        if vals[0] == 'v':
+            vs.append(vals[1:])
+        else:
+            obj_data = np.array(vals[1:], dtype=np.int).reshape(-1, 1) - 1
+            idx = np.arange(len(obj_data)) - 1
+            cur_edge = np.concatenate([obj_data, obj_data[idx]], -1)
+            [edges.add(tuple(sorted(e))) for e in cur_edge]
+            
+    vs = np.array(vs, dtype=np.float64)
+    edges = np.array(list(edges))
+    return vs, edges
+
 def writePoints(points, clsRoad):
     with open(clsRoad, 'w+') as file1:
         for i in range(len(points)):
@@ -93,7 +111,7 @@ def writePoints(points, clsRoad):
 
 
 class Building3DDataset(Dataset):
-    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
+    def __init__(self, data_path, transform, data_cfg, logger=None, color=False, nir=False, intensity=False, fpfh=False, mrgd=False, p2rf=False):
         with open(data_path, 'r') as f:
             self.file_list = f.readlines()
         self.file_list = [f.strip() for f in self.file_list]
@@ -108,7 +126,7 @@ class Building3DDataset(Dataset):
         self.intensity = intensity
         self.fpfh = fpfh
         self.mrgd = mrgd
-        
+        self.p2rf = p2rf
         if logger is not None:
             logger.info('Total samples: %d' % len(self))
 
@@ -379,8 +397,10 @@ class Building3DDataset(Dataset):
             idx = np.append(np.arange(0, len(points)), idx)
         np.random.shuffle(idx)
         points = points[idx]
-        vectors, edges = load_obj(self.file_list[item] + '/polygon.obj')
-        
+        if not self.p2rf:
+            vectors, edges = load_obj(self.file_list[item] + '/polygon.obj')
+        else:
+            vectors, edges = load_obj_p2rf(self.file_list[item] + '/polygon.obj')
         # data augment
         if np.random.random() > 0.5:
             # Flipping along the YZ plane

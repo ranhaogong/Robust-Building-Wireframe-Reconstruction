@@ -59,7 +59,7 @@ def build_dataloader_PoznanRDDataset(path, batch_size, data_cfg, workers=16, log
         shuffle=training)
     return dataloader
 
-def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
+def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False, mrgd=False, p2rf=False):
     path += '/train_all.txt' if training else '/test.txt'
 
     if training:
@@ -67,13 +67,13 @@ def build_dataloader_Building3DDataset(path, batch_size, data_cfg, workers=0, lo
     else:
         trasform = GaussianTransform(sigma= (0.005, 0.010), clip = 10, p = 0.0)
 
-    dataset = Building3DDataset(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd)
+    dataset = Building3DDataset(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd, p2rf)
     dataloader = DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, num_workers=workers, collate_fn=dataset.collate_batch,
         shuffle=training)
     return dataloader
 
-def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False, mrgd=False):
+def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers=0, logger=None, training=True, color=False, nir=False, intensity=False, fpfh=False, mrgd=False, p2rf=False):
     path += '/train_all.txt' if training else '/test_all.txt'
 
     if training:
@@ -81,7 +81,7 @@ def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers
     else:
         trasform = None
 
-    dataset = Building3DDatasetOutput(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd)
+    dataset = Building3DDatasetOutput(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd, p2rf)
     dataloader = DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, num_workers=workers, collate_fn=dataset.collate_batch,
         shuffle=training)

@@ -6,7 +6,7 @@ import datetime
 import glob
 import torch.distributed as dist
 from dataset.data_utils import build_dataloader_Building3DDatasetOutput
-from test_util import save_wireframe
+from test_util import save_wireframe, test_model
 from model.roofnet import RoofNet
 from torch import optim
 from utils import common_utils
@@ -45,13 +45,12 @@ def main():
     #     logger.info('{:16} {}'.format(key, val))
     # common_utils.log_config_to_file(cfg, logger=logger)
 
-    test_loader = build_dataloader_Building3DDatasetOutput(args.data_path, args.batch_size, cfg.DATA, training=False, logger=None, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), mrgd=getattr(cfg, 'MRGD', False))
+    test_loader = build_dataloader_Building3DDatasetOutput(args.data_path, args.batch_size, cfg.DATA, training=False, logger=None, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), mrgd=getattr(cfg, 'MRGD', False), p2rf=getattr(cfg, 'P2RF', False))
     net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), lovasz=getattr(cfg, 'LOVASZ', False), mrgd=getattr(cfg, 'MRGD', False))
     net.cuda()
     net.eval()
     print("ckpt_dir: ", ckpt_dir)
-    # ckpt_list = ['/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_edge_dbscan_003_cross_attention/ckpt/checkpoint_epoch_144.pth']
-    # /data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_wavelet_edge/ckpt/checkpoint_epoch_144.pth
+    # ckpt_list = ['/data/haoran/Point2Roof/output/building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_edge_dbscan_003_cross_attention_augment/ckpt/checkpoint_epoch_144.pth']
     ckpt_list = glob.glob(str(ckpt_dir / '*checkpoint_epoch_*.pth'))
     print("ckpt_list: ", ckpt_list)
     if len(ckpt_list) > 0:
@@ -63,6 +62,7 @@ def main():
     # logger.info(net)
 
     save_wireframe(net, test_loader, output_dir)
+    # test_model(net, test_loader, logger)
 
     
 

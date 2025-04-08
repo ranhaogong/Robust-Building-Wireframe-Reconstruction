@@ -25,8 +25,8 @@
 import os
 
 # 定义路径
-source_dir = "/data/haoran/dataset/building3d/tokyo/testing/xyz"
-output_file = "/data/haoran/dataset/building3d/Point2Roof_tokyo/test_all.txt"
+source_dir = "/data/haoran/dataset/building3d/roof/Entry-level/test/xyz"
+output_file = "/data/haoran/dataset/building3d/Point2Roof_Entry/test_all.txt"
 
 # 获取所有 .xyz 文件的绝对路径
 xyz_paths = []
