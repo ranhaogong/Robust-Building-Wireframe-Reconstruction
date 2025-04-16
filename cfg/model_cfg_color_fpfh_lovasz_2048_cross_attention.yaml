@@ -6,7 +6,7 @@ INTENSITY: False
 FPFH: True
 LOVASZ: True
 MRGD: True
-P2RF: True
+P2RF: False
 MODEL:
   PointNet2:
     PosRadius: 0.15

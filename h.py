@@ -55,28 +55,93 @@
 # print(f"边数直方图已保存为 {edge_hist_path}")
 
 
+# import os
+
+# # 定义源目录和目标文件路径
+# source_dir = "/data/haoran/dataset/building3d/tokyo/testing_seg/xyz"
+# output_file = "/data/haoran/dataset/building3d/Point2Roof_tokyo_seg/test_all.txt"
+
+# # 确保输出目录存在
+# output_dir = os.path.dirname(output_file)
+# if not os.path.exists(output_dir):
+#     os.makedirs(output_dir)
+
+# # 获取所有.xyz文件的绝对路径
+# xyz_files = []
+# for root, dirs, files in os.walk(source_dir):
+#     for file in files:
+#         if file.endswith('.xyz'):
+#             abs_path = os.path.abspath(os.path.join(root, file))
+#             xyz_files.append(abs_path)
+
+# # 将路径写入文件
+# with open(output_file, 'w') as f:
+#     for path in xyz_files:
+#         f.write(f"{path}\n")
+
+# print(f"已将 {len(xyz_files)} 个.xyz文件的绝对路径写入到 {output_file}")
+
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
 
-# 定义源目录和目标文件路径
-source_dir = "/data/haoran/dataset/building3d/tokyo/testing_seg/xyz"
-output_file = "/data/haoran/dataset/building3d/Point2Roof_tokyo_seg/test_all.txt"
+# 文件夹路径
+tallinn_folder = "/data/haoran/dataset/building3d/roof/Tallinn/train/xyz"
+second_folder = "/data/haoran/dataset/building3d/roof/Entry-level/train/xyz"  # 替换为第二个数据集路径
 
-# 确保输出目录存在
-output_dir = os.path.dirname(output_file)
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+# 存储点数
+tallinn_points = []
+second_points = []
 
-# 获取所有.xyz文件的绝对路径
-xyz_files = []
-for root, dirs, files in os.walk(source_dir):
-    for file in files:
-        if file.endswith('.xyz'):
-            abs_path = os.path.abspath(os.path.join(root, file))
-            xyz_files.append(abs_path)
+# 处理 Tallinn 数据集
+tallinn_files = [f for f in os.listdir(tallinn_folder) if f.endswith('.xyz')]
+for xyz_file in tqdm(tallinn_files, desc="Processing Tallinn xyz files", unit="file"):
+    with open(os.path.join(tallinn_folder, xyz_file), 'r') as f:
+        points = [line for line in f]
+        tallinn_points.append(len(points))
 
-# 将路径写入文件
-with open(output_file, 'w') as f:
-    for path in xyz_files:
-        f.write(f"{path}\n")
+# 处理第二个数据集
+second_files = [f for f in os.listdir(second_folder) if f.endswith('.xyz')]
+for xyz_file in tqdm(second_files, desc="Processing Entry-level xyz files", unit="file"):
+    with open(os.path.join(second_folder, xyz_file), 'r') as f:
+        points = [line for line in f]
+        second_points.append(len(points))
 
-print(f"已将 {len(xyz_files)} 个.xyz文件的绝对路径写入到 {output_file}")
+# 设置 Times New Roman 字体
+plt.rcParams['font.family'] = 'Times New Roman'
+
+# 创建子图，左右并排
+fig, ax = plt.subplots(1, 2, figsize=(8, 5), dpi=100, sharey=True)
+
+# 绘制 Tallinn 小提琴图
+sns.violinplot(data=tallinn_points, color='#B36A6F', inner='quartile', linewidth=1.5, alpha=0.8, ax=ax[0])
+ax[0].set_xlabel('Points (Tallinn)', fontsize=12, labelpad=10)
+ax[0].set_ylabel('Density', fontsize=12, labelpad=10)
+ax[0].grid(True, linestyle='--', alpha=0.3)
+ax[0].spines['top'].set_visible(False)
+ax[0].spines['right'].set_visible(False)
+ax[0].spines['left'].set_linewidth(0.5)
+ax[0].spines['bottom'].set_linewidth(0.5)
+ax[0].tick_params(axis='both', which='major', labelsize=10)
+
+# 绘制第二个数据集小提琴图
+sns.violinplot(data=second_points, color='#4A7A96', inner='quartile', linewidth=1.5, alpha=0.8, ax=ax[1])
+ax[1].set_xlabel('Points (Entry-level)', fontsize=12, labelpad=10)
+ax[1].grid(True, linestyle='--', alpha=0.3)
+ax[1].spines['top'].set_visible(False)
+ax[1].spines['right'].set_visible(False)
+ax[1].spines['left'].set_linewidth(0.5)
+ax[1].spines['bottom'].set_linewidth(0.5)
+ax[1].tick_params(axis='both', which='major', labelsize=10)
+
+# 统一标题
+fig.suptitle('Point Count Distribution Across Datasets', fontsize=14, y=1.05)
+
+# 保存图像
+violin_path = "point_count_violin_dual.png"
+plt.tight_layout()
+plt.savefig(violin_path, dpi=300, bbox_inches='tight')
+plt.show()
+
+print(f"点数小提琴图已保存为 {violin_path}")
