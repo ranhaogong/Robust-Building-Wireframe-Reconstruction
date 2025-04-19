@@ -208,11 +208,8 @@ class PointNet2(nn.Module):
         fpfh = points[:, :, -8:-3].reshape(-1, 5).cuda()  # [B*N, 5]
         mrgd = points[:, :, -3:].reshape(-1, 3).cuda()    # [B*N, 3]
         
-        if self.color:
-            # 原始特征（假设是 xyzrgb，前 6 列）
-            feature = points[:, :, :6].reshape(-1, 6).cuda()  # [B*N, 6]，假设 in_channel=6 表示 xyzrgb
-        else:
-            feature = points[:, :, :3].reshape(-1, 3).cuda()  # [B*N, 3]，假设 in_channel=3 表示 xyz
+        # 原始特征（假设是 xyzrgb，前 6 列）
+        feature = points[:, :, :6].reshape(-1, 6).cuda()  # [B*N, 6]，假设 in_channel=6 表示 xyzrgb
         
         # 超图注意力融合
         fused_feature = self.fusion_module(coord, fpfh, mrgd)  # [B*N, 6]
