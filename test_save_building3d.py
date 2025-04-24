@@ -37,13 +37,13 @@ def main():
     output_dir = output_dir / 'save'
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # log_file = output_dir / 'log.txt'
-    # logger = common_utils.create_logger(log_file)
+    log_file = output_dir / 'log.txt'
+    logger = common_utils.create_logger(log_file)
 
-    # logger.info('**********************Start logging**********************')
-    # for key, val in vars(args).items():
-    #     logger.info('{:16} {}'.format(key, val))
-    # common_utils.log_config_to_file(cfg, logger=logger)
+    logger.info('**********************Start logging**********************')
+    for key, val in vars(args).items():
+        logger.info('{:16} {}'.format(key, val))
+    common_utils.log_config_to_file(cfg, logger=logger)
 
     test_loader = build_dataloader_Building3DDatasetOutput(args.data_path, args.batch_size, cfg.DATA, training=False, logger=None, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), mrgd=getattr(cfg, 'MRGD', False), p2rf=getattr(cfg, 'P2RF', False))
     net = RoofNet(cfg.MODEL, color=cfg.COLOR, nir=cfg.NIR, intensity=cfg.INTENSITY, fpfh=getattr(cfg, 'FPFH', False), lovasz=getattr(cfg, 'LOVASZ', False), mrgd=getattr(cfg, 'MRGD', False))
@@ -61,8 +61,8 @@ def main():
     print('**********************Start saving**********************')
     # logger.info(net)
 
-    save_wireframe(net, test_loader, output_dir)
-    # test_model(net, test_loader, logger)
+    # save_wireframe(net, test_loader, output_dir)
+    test_model(net, test_loader, logger)
 
     
 

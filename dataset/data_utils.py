@@ -80,7 +80,7 @@ def build_dataloader_Building3DDatasetOutput(path, batch_size, data_cfg, workers
         trasform = GaussianTransform(sigma=(0.005, 0.010), clip = 10, p = 0.8)
     else:
         trasform = None
-        # trasform = GaussianTransform(sigma=(0.01, 0.01), clip = 10, p = 1)
+        # trasform = GaussianTransform(sigma=(0.15, 0.15), clip = 10, p = 1)
 
     dataset = Building3DDatasetOutput(path, trasform, data_cfg, logger, color, nir, intensity, fpfh, mrgd, p2rf)
     dataloader = DataLoader(
