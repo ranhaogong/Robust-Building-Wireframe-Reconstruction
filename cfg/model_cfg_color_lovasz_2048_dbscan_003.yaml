@@ -3,7 +3,7 @@ DATA:
 COLOR: True
 NIR: False
 INTENSITY: False
-FPFH: True
+FPFH: False
 LOVASZ: True
 MRGD: False
 MODEL:

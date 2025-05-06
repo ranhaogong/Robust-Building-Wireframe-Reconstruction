@@ -22,94 +22,6 @@ except ImportError:
 
 from .serialization import encode
 
-class HypergraphAttentionFusion(nn.Module):
-    def __init__(self, fpfh_dim=5, mrgd_dim=3, embed_dim=16, out_dim=6, k_fpfh=8, k_mrgd=32):
-        super().__init__()
-        self.k_fpfh = k_fpfh
-        self.k_mrgd = k_mrgd
-        
-        # 投影层
-        self.fpfh_proj = nn.Linear(fpfh_dim, embed_dim)
-        self.mrgd_proj = nn.Linear(mrgd_dim, embed_dim)
-        
-        # 超图内部注意力参数
-        self.intra_query = nn.Linear(embed_dim, embed_dim)
-        self.intra_key = nn.Linear(embed_dim, embed_dim)
-        self.intra_value = nn.Linear(embed_dim, embed_dim)
-        
-        # 交叉注意力参数
-        self.cross_query_f = nn.Linear(embed_dim, embed_dim)  # FPFH -> MRGD
-        self.cross_key_m = nn.Linear(embed_dim, embed_dim)
-        self.cross_value_m = nn.Linear(embed_dim, embed_dim)
-        self.cross_query_m = nn.Linear(embed_dim, embed_dim)  # MRGD -> FPFH
-        self.cross_key_f = nn.Linear(embed_dim, embed_dim)
-        self.cross_value_f = nn.Linear(embed_dim, embed_dim)
-        
-        self.scale = (embed_dim) ** -0.5
-        
-        # 输出投影
-        self.out_proj = nn.Sequential(
-            nn.Linear(embed_dim * 2, embed_dim),  # 拼接内部和交叉结果
-            nn.ReLU(inplace=True),
-            nn.Linear(embed_dim, out_dim),
-            nn.BatchNorm1d(out_dim),
-            nn.ReLU(inplace=True)
-        )
-        
-    def forward(self, xyz, fpfh, mrgd):
-        # xyz: [B*N, 3], fpfh: [B*N, 5], mrgd: [B*N, 3]
-        B_N = xyz.size(0)
-        
-        # 投影到嵌入空间
-        fpfh_embed = self.fpfh_proj(fpfh)  # [B*N, 16]
-        mrgd_embed = self.mrgd_proj(mrgd)  # [B*N, 16]
-        
-        # 构建超图
-        from torch_cluster import knn
-        edge_fpfh = knn(xyz, xyz, k=self.k_fpfh)  # [2, B*N*k_fpfh]
-        edge_mrgd = knn(xyz, xyz, k=self.k_mrgd)  # [2, B*N*k_mrgd]
-        row_f, col_f = edge_fpfh
-        row_m, col_m = edge_mrgd
-        
-        # --- 超图内部注意力 ---
-        # FPFH 内部
-        q_f_intra = self.intra_query(fpfh_embed)    # [B*N, 16]
-        k_f_intra = self.intra_key(fpfh_embed[col_f])  # [B*N*k_fpfh, 16]
-        v_f_intra = self.intra_value(fpfh_embed[col_f])
-        attn_f_intra = (q_f_intra[row_f] * k_f_intra).sum(dim=-1) * self.scale
-        attn_f_intra = torch_scatter.scatter_softmax(attn_f_intra, row_f, dim=0)
-        fused_f_intra = torch_scatter.scatter(attn_f_intra.unsqueeze(-1) * v_f_intra, row_f, dim=0, reduce='sum')  # [B*N, 16]
-        
-        # MRGD 内部
-        q_m_intra = self.intra_query(mrgd_embed)    # [B*N, 16]
-        k_m_intra = self.intra_key(mrgd_embed[col_m])  # [B*N*k_mrgd, 16]
-        v_m_intra = self.intra_value(mrgd_embed[col_m])
-        attn_m_intra = (q_m_intra[row_m] * k_m_intra).sum(dim=-1) * self.scale
-        attn_m_intra = torch_scatter.scatter_softmax(attn_m_intra, row_m, dim=0)
-        fused_m_intra = torch_scatter.scatter(attn_m_intra.unsqueeze(-1) * v_m_intra, row_m, dim=0, reduce='sum')  # [B*N, 16]
-        
-        # --- 交叉注意力 ---
-        # FPFH -> MRGD
-        q_f_cross = self.cross_query_f(fused_f_intra)  # [B*N, 16]
-        k_m_cross = self.cross_key_m(fused_m_intra)    # [B*N, 16]
-        v_m_cross = self.cross_value_m(fused_m_intra)  # [B*N, 16]
-        attn_fm = (q_f_cross * k_m_cross).sum(dim=-1) * self.scale  # [B*N]
-        attn_fm = attn_fm.softmax(dim=0)  # 全局归一化
-        fused_fm = attn_fm.unsqueeze(-1) * v_m_cross  # [B*N, 16]
-        
-        # MRGD -> FPFH
-        q_m_cross = self.cross_query_m(fused_m_intra)  # [B*N, 16]
-        k_f_cross = self.cross_key_f(fused_f_intra)    # [B*N, 16]
-        v_f_cross = self.cross_value_f(fused_f_intra)  # [B*N, 16]
-        attn_mf = (q_m_cross * k_f_cross).sum(dim=-1) * self.scale  # [B*N]
-        attn_mf = attn_mf.softmax(dim=0)
-        fused_mf = attn_mf.unsqueeze(-1) * v_f_cross  # [B*N, 16]
-        
-        # 融合内部和交叉结果
-        fused = torch.cat([fused_f_intra + fused_fm, fused_m_intra + fused_mf], dim=-1)  # [B*N, 32]
-        fused = self.out_proj(fused)  # [B*N, 6]
-        return fused
-
 class PointNet2(nn.Module):
     def __init__(self, model_cfg, in_channel=3, color=False, nir=False, intensity=False, fpfh=False, lovasz=False):
         super().__init__()
@@ -153,7 +65,6 @@ class PointNet2(nn.Module):
             pdnorm_affine=True,
             pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"),
         )
-        self.fusion_module = HypergraphAttentionFusion(fpfh_dim=5, mrgd_dim=3, embed_dim=16, out_dim=6, k_fpfh=8, k_mrgd=32)
         self.drop = nn.Dropout(0.5)
         self.shared_fc = Conv1dBN(64, 64)
         self.offset_fc = nn.Conv1d(64, 3, 1)
@@ -203,30 +114,22 @@ class PointNet2(nn.Module):
         batch_size = xyz.size(0)
         n_pts = xyz.size(1)
         batch_vals = torch.arange(batch_size).view(-1, 1).expand(-1, n_pts).reshape(-1).cuda()
-        
-        # 提取 FPFH 和 MRGD 特征（倒数八列）
-        fpfh = points[:, :, -8:-3].reshape(-1, 5).cuda()  # [B*N, 5]
-        mrgd = points[:, :, -3:].reshape(-1, 3).cuda()    # [B*N, 3]
-        
-        if self.color:
-            # 原始特征（假设是 xyzrgb，前 6 列）
-            feature = points[:, :, :6].reshape(-1, 6).cuda()  # [B*N, 6]，假设 in_channel=6 表示 xyzrgb
-        else:
-            feature = points[:, :, :3].reshape(-1, 3).cuda()  # [B*N, 3]，假设 in_channel=3 表示 xyz
-        
-        # 超图注意力融合
-        fused_feature = self.fusion_module(coord, fpfh, mrgd)  # [B*N, 6]
-        feature = torch.cat([feature, fused_feature], dim=-1)  # [B*N, 12]
-        
+        # if self.color == True or self.nir == True or self.intensity == True:
+        #     feature = points[:, :, 3:]
+        #     feature = feature.reshape(-1, self.in_channel - 3).cuda()
+        # else:
+        #     feature = coord
+        feature = points.reshape(-1, self.in_channel).cuda()
         # 使用 PointTransformerV3 提取特征
         point_dict = {
             'feat': feature,
-            'coord': coord,
+            'coord': coord,  # 坐标 (B* N, 3)
+            # 'batch': torch.arange(xyz.size(0)),  # 批次索引
             'batch': batch_vals,
             'grid_size': 0.01
         }
         point = self.ptv3(point_dict)  # 通过 PointTransformerV3
-        l0_fea = point.feat.view(batch_size, n_pts, point.feat.size(1)).transpose(1, 2)  # [B, 64, N]
+        l0_fea = point.feat.view(batch_size, n_pts, point.feat.size(1)).transpose(1, 2)  # torch.Size([65536, 64])
 
         x = self.drop(self.shared_fc(l0_fea))
         pred_offset = self.offset_fc(x).permute(0, 2, 1)
@@ -259,30 +162,7 @@ class PointNet2(nn.Module):
         pred = torch.where(pred_logit >= 0.5, pred_logit.new_ones(pred_logit.shape), pred_logit.new_zeros(pred_logit.shape))
         acc = torch.sum((pred == label_cls) & (label_cls == 1)).item() / torch.sum(label_cls == 1).item()
         #acc = torch.sum(pred == label_cls).item() / len(label_cls.view(-1))
-        # 计算 TP, FP, TN, FN
-        TP = torch.sum((pred == 1) & (label_cls == 1)).item()  # 真正例
-        FP = torch.sum((pred == 1) & (label_cls == 0)).item()  # 假正例
-        TN = torch.sum((pred == 0) & (label_cls == 0)).item()  # 真负例
-        FN = torch.sum((pred == 0) & (label_cls == 1)).item()  # 假负例
-
-        # 总样本数
-        total = TP + FP + TN + FN
-
-        # 准确率 (Accuracy): (TP + TN) / 总样本数
-        accuracy = (TP + TN) / total if total > 0 else 0
-
-        # 精确度 (Precision): TP / (TP + FP)
-        precision = TP / (TP + FP) if (TP + FP) > 0 else 0
-
-        # 召回率 (Recall): TP / (TP + FN)，与你给的代码类似
-        recall = TP / (TP + FN) if (TP + FN) > 0 else 0
-
-        # F1-score: 2 * (Precision * Recall) / (Precision + Recall)
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        disp_dict.update({'pts_re': recall})
-        disp_dict.update({'pts_accuracy': accuracy})
-        disp_dict.update({'pts_pre': precision})
-        disp_dict.update({'pts_f1': f1_score})
+        disp_dict.update({'pts_acc': acc})
         return loss, loss_dict, disp_dict
 
     # pred: [B,N,1], label: [B,N]

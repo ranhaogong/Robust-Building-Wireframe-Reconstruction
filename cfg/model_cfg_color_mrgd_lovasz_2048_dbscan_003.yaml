@@ -3,9 +3,9 @@ DATA:
 COLOR: True
 NIR: False
 INTENSITY: False
-FPFH: True
+FPFH: False
 LOVASZ: True
-MRGD: False
+MRGD: True
 MODEL:
   PointNet2:
     PosRadius: 0.15
