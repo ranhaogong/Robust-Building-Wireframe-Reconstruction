@@ -6,7 +6,7 @@ python ../train_building3d.py \
 --max_ckpt_save_num 60 \
 --cfg_file ../cfg/model_cfg_color_fpfh_mrgd_lovasz_2048_tokyo_dbscan_003.yaml \
 --batch_size 64 \
---extra_tag building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_cross_attention_lovasz_edge_dbscan_003 \
---epochs 150 \
+--extra_tag building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_cross_attention_lovasz_edge_finetune_dbscan_003 \
+--epochs 300 \
 --lr 1e-4
 

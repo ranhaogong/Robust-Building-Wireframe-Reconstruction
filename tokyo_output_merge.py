@@ -90,8 +90,8 @@ import os
 from collections import defaultdict
 
 # 定义源目录和输出目录
-source_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_lovasz_edge/save"
-output_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_lovasz_edge/save_merge"
+source_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_mrgd_lovasz_edge_dbscan_003/save"
+output_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_mrgd_lovasz_edge_dbscan_003/save_merge_dbscan_003_mrgd"
 
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
