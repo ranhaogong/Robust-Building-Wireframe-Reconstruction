@@ -91,8 +91,9 @@ from collections import defaultdict
 
 # 定义源目录和输出目录
 source_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_mrgd_lovasz_edge_dbscan_003/save"
-output_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_mrgd_lovasz_edge_dbscan_003/save_merge_dbscan_003_mrgd"
-
+output_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_mrgd_lovasz_edge_dbscan_003/save_merge_dbscan_0015_mrgd_edge_pred_07"
+# source_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_cross_attention_lovasz_edge_finetune_dbscan_003/save"
+# output_dir = "/data/haoran/Point2Roof/output/building3d_tokyo_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_cross_attention_lovasz_edge_finetune_dbscan_003/save_merge_fpfh_cross_attention_dbscan_0015_edge_pred_06_epoch_264"
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
 

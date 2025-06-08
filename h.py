@@ -149,8 +149,8 @@
 import os
 
 # 定义输入和输出路径
-input_dir = "/data/haoran/dataset/building3d/roof/Tallinn/train/xyz"
-output_file = "/data/haoran/dataset/building3d/roof/Tallinn/train/test_all.txt"
+input_dir = "/data/haoran/dataset/building3d/tokyo/training_seg_9000/xyz"
+output_file = "/data/haoran/dataset/building3d/tokyo/training_seg_9000/xyz/test_all.txt"
 
 # 确保输入目录存在
 if not os.path.exists(input_dir):

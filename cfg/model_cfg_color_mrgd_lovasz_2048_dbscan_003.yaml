@@ -17,8 +17,8 @@ MODEL:
     ScoreThresh: 0.5
     MatchRadius: 0.2
     Cluster:
-      eps: 0.03
-      min_pts: 4
+      eps: 0.015
+      min_pts: 2
     RefineSA:
       Radii: [0.1, 0.2]
       Nsamples: [16, 16]
