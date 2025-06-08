@@ -342,18 +342,18 @@ def main():
     # 示例 2：测试集（is_training=False）
     input_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/xyz"  # 输入 .xyz 文件的目录
     input_obj_dir_test = "/data/haoran/dataset/building3d/tokyo/testing/wireframe"  # 输入 .obj 文件的目录（测试集不使用）
-    output_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/training_seg_9000/xyz"  # 输出分割点云的目录
+    output_xyz_dir_test = "/data/haoran/dataset/building3d/tokyo/testing_seg/xyz"  # 输出分割点云的目录
     
     # 参数设置
     distance_threshold = 0.03  # 空间距离阈值
     height_threshold = 0.010  # 高度差异阈值
     min_points = 20  # 每个簇的最小点数
-    point_threshold = 9000  # 点数阈值，超过此值才进行聚类
+    point_threshold = 13000  # 点数阈值，超过此值才进行聚类
     
     # 处理训练集
-    # print("Processing training set...")
-    # process_xyz_files(input_xyz_dir_train, input_obj_dir_train, output_xyz_dir_train, output_obj_dir_train, 
-    #                   distance_threshold, height_threshold, min_points, point_threshold, is_training=True)
+    print("Processing training set...")
+    process_xyz_files(input_xyz_dir_train, input_obj_dir_train, output_xyz_dir_train, output_obj_dir_train, 
+                      distance_threshold, height_threshold, min_points, point_threshold, is_training=True)
     
     # 处理测试集
     print("Processing testing set...")
