@@ -1,77 +1,386 @@
-# Point2Roof
-This is the PyToch implementation of the following manuscript:
-> Point2Roof: End-to-end 3D building roof modeling from airborne LiDAR point clouds
->
-> Li Li, Nan Song, Fei Sun, Xinyi Liu, Ruisheng Wang, Jian Yao, Shapsheng Cao
->
-This manuscript has been accepted by ISPRS Journal.
+# [IJRS] Robust Building Wireframe Reconstruction: A Hypergraph and Transformer-Enhanced Framework for Large-Scale and Real-World Urban Point Clouds 
 
-## Synthetic and real dataset
+Official implementation of
+**“Robust Building Wireframe Reconstruction: A Hypergraph and Transformer-Enhanced Framework for Large-Scale and Real-World Urban Point Clouds”** 
 
-To train and test DeepRoof, we construct a new dataset of roof building 3D reconstruction. To further evaluate the performance of the proposed Point2Roof, we also construct a small real dataset. 
-The real building point clouds are selected from [RoofN3D](https://github.com/sarthakTUM/roofn3d). 
-Now, this dataset only has 500 buildings. We will further expand this real dataset. 
-
-The synthetic and real dataset can be downloaded from [[baiduyun](https://pan.baidu.com/s/1Esbpnp30fWHA1_7eXwcYtQ) :nou3] or [[GoogleDrive](https://drive.google.com/drive/folders/1d8y2UxC9TUirgk6L1VbP-KXg3YbDgWYy?usp=sharing)]. 
-You can directly unzip the file to obtain all train and test sets. 
-For each sample, polygon.obj is the groud truth model, and points.xyz is the roof point clouds. 
+🏆🏆 Won 2st place in Building3D Challenge at CVPR2025.
 
 
- 
 
-## Usage
-Befor you tain the model, you need to install "pc_util" using "setup.py" using the following command:
 
-```shell script
-cd into pc_util
+## 📌 Abstract
+
+Accurate 3D building reconstruction is crucial for advancing urban digital twinning, city planning, and sustainable development. As a key architectural component, rooftops facilitate urban energy management and inform urban morphological analysis. Consequently, achieving precise and scalable rooftop reconstruction has emerged as a key research focus in recent years. Point clouds, with their ability to preserve detailed geometric structures, are well suited for this task. However, existing methods predominantly target synthetic rooftop datasets, which lack architectural diversity and often require high-quality point clouds as input. These limitations hinder their applicability to large-scale, real-world urban environments characterized by varied rooftop designs and noisy or sparse data. To address these challenges, we propose a novel end-to-end framework for rooftop wireframe reconstruction from airborne laser scanning (ALS) point clouds. Our approach introduces a multi-scale local feature descriptor optimized for rooftops to enhance per-point geometric feature extraction. Then, a hypergraph-based attention fusion module integrates these features. After comprehensive feature learning by a robust backbone, initial corner detection is followed by a Transformer- and EdgeConv-enhanced edge classification mechanism that models topological relationships through long-range dependencies. Experiments on the large-scale real-world Building3D dataset demonstrate significant improvements over the baseline, with corner accuracy improved by 35% on the Entry-level subset and 41% on the Tallinn subset. Qualitative comparisons further reveal superior wireframe fidelity, underscoring the method’s potential to support digital twinning, urban management, and economic development in smart city initiatives.
+
+---
+
+# 📖 Paper
+
+### International Journal of Remote Sensing 2025
+
+**Robust building wireframe reconstruction: a hypergraph and transformer-enhanced framework for large-scale and real-world urban point clouds**
+Haoran Gong, Jing Liu, Rui Tong, Fuqiang Tian, Di Wang
+
+📄 DOI: [https://doi.org/10.1080/01431161.2025.2583601](https://doi.org/10.1080/01431161.2025.2583601)
+
+---
+
+# ✨ Main Features
+
+* End-to-end rooftop wireframe reconstruction
+* Robust to sparse and noisy ALS point clouds
+* Supports large-scale real-world urban scenes
+* Hypergraph-based geometric feature fusion
+* Transformer-enhanced edge reasoning
+* Generalizes to unseen cities and datasets
+
+---
+
+
+
+# 🏗️ Framework Pipeline
+
+<p align="center">
+  <img src="assets/pipeline.png" width="95%">
+</p>
+
+The overall reconstruction pipeline consists of:
+
+1. **Geometric Feature Extraction**
+   * FPFH
+   * MRGD
+   
+2. **Hypergraph Attention Fusion**
+
+   * Fuse handcrafted and learned geometric descriptors
+
+3. **Candidate Corner Detection**
+
+   * PTv3-based point feature extraction
+   * Corner classification + offset regression
+
+4. **Corner Refinement**
+
+   * DBSCAN clustering
+   * Offset refinement network
+
+5. **Edge Classification**
+
+   * Transformer
+   * EdgeConv
+   * Paired Point Attention
+
+
+
+
+---
+
+# 📊 Results
+
+Our method achieves state-of-the-art performance on Building3D.
+
+<p align="center">
+  <img src="assets/result.png" width="95%">
+</p>
+
+---
+
+# 🧩 Installation
+
+## 1. Clone Repository
+
+```bash
+git clone https://github.com/ranhaogong/Robust-Building-Wireframe-Reconstruction.git
+cd Robust-Building-Wireframe-Reconstruction
+```
+
+---
+
+## 2. Create Conda Environment
+
+We provide an `environment.yaml` file for reproducing all experiments.
+
+```bash
+conda env create -f environment.yaml
+conda activate p2rf
+```
+
+---
+
+## 3. Install `pc_util`
+
+Before training or inference, install the custom point cloud utility library:
+
+```bash
+cd pc_util
 python setup.py install
-``` 
+cd ..
+```
 
-Required PyTorch 1.8 or newer. The other dependencies are (maybe incomplete):
-- sklearn
-- tqdm
-- scipy
+---
 
-You can install the missed dependencies according to the compilation errors.
+# 📦 Dependencies
 
-## Train and test
-After downloading our dataset and code, you need to prepare your train.txt and test.txt.
-We have provided the train.txt and test.txt used in our enviroment. Then, your can run train.py and test.py. checkpoint_epoch_90.pth is our trained model.
+Main dependencies include:
 
-## Results
+* Python >= 3.8
+* PyTorch >= 1.8
+* CUDA >= 11.3
+* Open3D
+* NumPy
+* SciPy
+* scikit-learn
+* tqdm
+* PyYAML
 
-We present 16 roof models reconstructed by [2.5D dual contouring](https://qianyi.info/urban.html), [TopoLAP](http://skyearth.org/LiDARPro/), and the proposed Point2Roof in ./results. 
+If some packages are missing, install them according to compilation/runtime errors.
+
+---
+
+# 📁 Dataset Preparation
+
+## Building3D Dataset
+
+Please prepare the Building3D dataset following the official dataset structure.
+
+Expected structure:
+
+```text
+data/
+├── Building3d_tallinn/
+├── Building3d_tokyo/
+└── ...
+```
+
+---
+
+# 🚀 Reproducing Results
+
+# 1. Tallinn Dataset
+
+## Step 1: Create Output Directory
+
+```bash
+mkdir -p output/building3d_tallinn/ckpt
+```
+
+---
+
+## Step 2: Download Pretrained Weights
+
+Place the checkpoint here:
+
+```text
+output/building3d_tallinn/ckpt/checkpoint_epoch_138.pth
+```
+
+---
+
+## Step 3: Select Correct Model Version
+
+```bash
+cd model
+cp pointnet2_cross_attention.py pointnet2.py
+cd ..
+```
+
+---
+
+## Step 4: Run Inference
+
+```bash
+cd script
+
+CUDA_VISIBLE_DEVICES=0 \
+python ../test_save_building3d.py \
+    --data_path /data/haoran/dataset/building3d/Point2Roof \
+    --cfg_file ../cfg/model_cfg_color_fpfh_lovasz_2048_dbscan_003_cross_attention.yaml \
+    --test_tag building3d_tallinn \
+    --batch_size 64
+```
+
+---
+
+# 2. Tokyo Dataset
+
+## Step 1: Pre-segment Tokyo Dataset
+
+Modify the input/output path in:
+
+```text
+segment_label.py
+```
+
+Then run:
+
+```bash
+python segment_label.py
+```
+
+---
+
+## Step 2: Create Output Directory
+
+```bash
+mkdir -p output/building3d_tokyo/ckpt
+```
+
+---
+
+## Step 3: Download Pretrained Weights
+
+Place the checkpoint here:
+
+```text
+output/building3d_tokyo/ckpt/checkpoint_epoch_139.pth
+```
+
+---
+
+## Step 4: Select Correct Model Version
+
+```bash
+cd model
+cp pointnet2_ptv3_lovasz.py pointnet2.py
+cd ..
+```
+
+---
+
+## Step 5: Modify Edge Threshold
+
+Edit:
+
+```text
+test_util.py
+```
+
+Change line 126:
+
+```python
+match_edge = all_edges[edge_pred[idx:idx + len(all_edges)] > 0.5]
+```
+
+to:
+
+```python
+match_edge = all_edges[edge_pred[idx:idx + len(all_edges)] > 0.6]
+```
+
+---
+
+## Step 6: Run Inference
+
+```bash
+cd script
+
+CUDA_VISIBLE_DEVICES=0 \
+python ../test_save_building3d.py \
+    --data_path /data/haoran/dataset/building3d/Point2Roof_tokyo \
+    --cfg_file ../cfg/model_cfg_color_mrgd_lovasz_2048_dbscan_003.yaml \
+    --test_tag building3d_tokyo \
+    --batch_size 16
+```
+
+---
+
+## Step 7: Merge Results
+
+Modify paths in:
+
+```text
+tokyo_output_merge.py
+```
+
+Then run:
+
+```bash
+python tokyo_output_merge.py
+```
+
+---
+
+# 🏋️ Training
+
+## Train Candidate Corner Detection + Edge Classification
+
+```bash
+cd script
+
+CUDA_VISIBLE_DEVICES=0 \
+python train.py \
+    --cfg_file ../cfg/your_config.yaml
+```
+
+---
+
+# 📂 Checkpoints
+
+Pretrained checkpoints:
+
+| Dataset | Checkpoint                 |
+| ------- | -------------------------- |
+| Tallinn | `checkpoint_epoch_138.pth` |
+| Tokyo   | `checkpoint_epoch_139.pth` |
+
+---
+
+# 📈 Evaluation Metrics
+
+We follow the official Building3D evaluation protocol:
+
+* ACO
+* CP / CR / CF1
+* EP / ER / EF1
 
 
-## Citation
 
-If you find our work useful for your research, please consider citing our paper.
-> Point2Roof: End-to-end 3D building roof modeling from airborne LiDAR point clouds
->
-> Li Li, Nan Song, Fei Sun, Xinyi Liu, Ruisheng Wang, Jian Yao, Shapsheng Cao
+---
 
-In addition, if you use the real dataset, please also consider citing the following paper:
+# 🧪 Generalization
 
-```shell script
-@article{wichmann2019roofn3d,
-  title={RoofN3D: A database for 3D building reconstruction with deep learning},
-  author={Wichmann, Andreas and Agoub, Amgad and Schmidt, Valentina and Kada, Martin},
-  journal={Photogrammetric Engineering \& Remote Sensing},
-  volume={85},
-  number={6},
-  pages={435--443},
-  year={2019},
-  publisher={American Society for Photogrammetry and Remote Sensing}
+The model trained on Building3D Tallinn can directly generalize to:
+
+* RoofN3D
+* Synthetic rooftop datasets
+
+without additional fine-tuning. 
+
+---
+
+# 📝 Citation
+
+```bibtex
+@article{gong2025robust,
+  title={Robust building wireframe reconstruction: a hypergraph and transformer-enhanced framework for large-scale and real-world urban point clouds},
+  author={Gong, Haoran and Liu, Jing and Tong, Rui and Tian, Fuqiang and Wang, Di},
+  journal={International Journal of Remote Sensing},
+  volume={46},
+  number={24},
+  pages={9565--9596},
+  year={2025},
+  publisher={Taylor \& Francis}
 }
-``` 
+```
 
-## Contact:
-Li Li (li.li@whu.edu.cn)
+---
 
+# 🙏 Acknowledgements
 
+This work is built upon several excellent open-source projects:
 
+* PointNet++
+* Point Transformer v3
+* Point2Roof
+* PC2WF
 
+We sincerely thank the authors for their contributions.
 
+---
 
+# 📬 Contact
 
-      
+Haoran Gong
+Xi’an Jiaotong University
+
+If you find this work useful, please consider giving a ⭐ to the repository.
