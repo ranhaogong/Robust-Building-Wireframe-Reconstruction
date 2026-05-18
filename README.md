@@ -5,8 +5,8 @@
 Official implementation of
 **“Robust Building Wireframe Reconstruction: A Hypergraph and Transformer-Enhanced Framework for Large-Scale and Real-World Urban Point Clouds”** 
 
-🥈 Won 2st place in Building3D Challenge at CVPR2025.
-🔥 Accepted by International Journal of Remote Sensing
+🥈 Won 2st place in Building3D Challenge at CVPR2025.  
+🔥 Accepted by International Journal of Remote Sensing.
 
 
 ## 📌 Abstract
