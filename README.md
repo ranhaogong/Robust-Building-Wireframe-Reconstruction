@@ -349,6 +349,11 @@ Refer to official evaluation platform: https://huggingface.co/spaces/Building3D/
 
 ---
 
+# Invited Talk
+[![Demo Video](assets/talk.png)](https://www.bilibili.com/video/BV162LP6HEXK/?spm_id_from=333.1387.upload.video_card.click&vd_source=48118c7a80f2b975b629d1c983c73ad0)
+
+---
+
 # 📝 Citation
 
 ```bibtex
