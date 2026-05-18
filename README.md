@@ -7,7 +7,9 @@ Official implementation of
 
 🥈 Won 2st place in Building3D Challenge at CVPR2025.
 
-
+<p align="center">
+  <img src="assets/award.png" width="95%">
+</p>
 
 
 ## 📌 Abstract
