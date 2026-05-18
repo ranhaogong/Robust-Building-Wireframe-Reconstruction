@@ -380,7 +380,7 @@ We sincerely thank the authors for their contributions.
 
 # 📬 Contact
 
-[Haoran Gong](gonghr@stu.xjtu.edu.cn)
+[Haoran Gong](https://ranhaogong.github.io/)
 Xi’an Jiaotong University
 
 📧 Email: <gonghr@stu.xjtu.edu.cn>
