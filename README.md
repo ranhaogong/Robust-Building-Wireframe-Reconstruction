@@ -1,9 +1,11 @@
+
+
 # [IJRS] Robust Building Wireframe Reconstruction: A Hypergraph and Transformer-Enhanced Framework for Large-Scale and Real-World Urban Point Clouds 
 
 Official implementation of
 **“Robust Building Wireframe Reconstruction: A Hypergraph and Transformer-Enhanced Framework for Large-Scale and Real-World Urban Point Clouds”** 
 
-🏆🏆 Won 2st place in Building3D Challenge at CVPR2025.
+🥈 Won 2st place in Building3D Challenge at CVPR2025.
 
 
 
@@ -80,8 +82,13 @@ The overall reconstruction pipeline consists of:
 Our method achieves state-of-the-art performance on Building3D.
 
 <p align="center">
+  <img src="assets/vis1.png" width="95%">
+</p>
+
+<p align="center">
   <img src="assets/result.png" width="95%">
 </p>
+
 
 ---
 
@@ -141,7 +148,7 @@ If some packages are missing, install them according to compilation/runtime erro
 
 ## Building3D Dataset
 
-Please prepare the Building3D dataset following the official dataset structure.
+
 
 Expected structure:
 
@@ -154,11 +161,22 @@ data/
 
 ---
 
+# 📂 Checkpoints
+
+Pretrained checkpoints: https://pan.baidu.com/s/14KCa19ymzYmMbJV_XiRroQ?pwd=pfpe
+
+| Dataset | Checkpoint                 |
+| ------- | -------------------------- |
+| Tallinn | `checkpoint_epoch_138.pth` |
+| Tokyo   | `checkpoint_epoch_139.pth` |
+
+---
+
 # 🚀 Reproducing Results
 
-# 1. Tallinn Dataset
+## 1. Tallinn Dataset
 
-## Step 1: Create Output Directory
+### Step 1: Create Output Directory
 
 ```bash
 mkdir -p output/building3d_tallinn/ckpt
@@ -166,7 +184,7 @@ mkdir -p output/building3d_tallinn/ckpt
 
 ---
 
-## Step 2: Download Pretrained Weights
+### Step 2: Download Pretrained Weights
 
 Place the checkpoint here:
 
@@ -176,7 +194,7 @@ output/building3d_tallinn/ckpt/checkpoint_epoch_138.pth
 
 ---
 
-## Step 3: Select Correct Model Version
+### Step 3: Select Correct Model Version
 
 ```bash
 cd model
@@ -186,14 +204,14 @@ cd ..
 
 ---
 
-## Step 4: Run Inference
+### Step 4: Run Inference
 
 ```bash
 cd script
 
 CUDA_VISIBLE_DEVICES=0 \
 python ../test_save_building3d.py \
-    --data_path /data/haoran/dataset/building3d/Point2Roof \
+    --data_path ../data/Building3d_tallinn \
     --cfg_file ../cfg/model_cfg_color_fpfh_lovasz_2048_dbscan_003_cross_attention.yaml \
     --test_tag building3d_tallinn \
     --batch_size 64
@@ -201,9 +219,9 @@ python ../test_save_building3d.py \
 
 ---
 
-# 2. Tokyo Dataset
+## 2. Tokyo Dataset
 
-## Step 1: Pre-segment Tokyo Dataset
+### Step 1: Pre-segment Tokyo Dataset
 
 Modify the input/output path in:
 
@@ -219,7 +237,7 @@ python segment_label.py
 
 ---
 
-## Step 2: Create Output Directory
+### Step 2: Create Output Directory
 
 ```bash
 mkdir -p output/building3d_tokyo/ckpt
@@ -227,7 +245,7 @@ mkdir -p output/building3d_tokyo/ckpt
 
 ---
 
-## Step 3: Download Pretrained Weights
+### Step 3: Download Pretrained Weights
 
 Place the checkpoint here:
 
@@ -237,7 +255,7 @@ output/building3d_tokyo/ckpt/checkpoint_epoch_139.pth
 
 ---
 
-## Step 4: Select Correct Model Version
+### Step 4: Select Correct Model Version
 
 ```bash
 cd model
@@ -247,7 +265,7 @@ cd ..
 
 ---
 
-## Step 5: Modify Edge Threshold
+### Step 5: Modify Edge Threshold
 
 Edit:
 
@@ -269,14 +287,14 @@ match_edge = all_edges[edge_pred[idx:idx + len(all_edges)] > 0.6]
 
 ---
 
-## Step 6: Run Inference
+### Step 6: Run Inference
 
 ```bash
 cd script
 
 CUDA_VISIBLE_DEVICES=0 \
 python ../test_save_building3d.py \
-    --data_path /data/haoran/dataset/building3d/Point2Roof_tokyo \
+    --data_path ../data/Building3d_tokyo \
     --cfg_file ../cfg/model_cfg_color_mrgd_lovasz_2048_dbscan_003.yaml \
     --test_tag building3d_tokyo \
     --batch_size 16
@@ -284,7 +302,7 @@ python ../test_save_building3d.py \
 
 ---
 
-## Step 7: Merge Results
+### Step 7: Merge Results
 
 Modify paths in:
 
@@ -314,16 +332,7 @@ python train.py \
 
 ---
 
-# 📂 Checkpoints
 
-Pretrained checkpoints:
-
-| Dataset | Checkpoint                 |
-| ------- | -------------------------- |
-| Tallinn | `checkpoint_epoch_138.pth` |
-| Tokyo   | `checkpoint_epoch_139.pth` |
-
----
 
 # 📈 Evaluation Metrics
 
@@ -333,18 +342,7 @@ We follow the official Building3D evaluation protocol:
 * CP / CR / CF1
 * EP / ER / EF1
 
-
-
----
-
-# 🧪 Generalization
-
-The model trained on Building3D Tallinn can directly generalize to:
-
-* RoofN3D
-* Synthetic rooftop datasets
-
-without additional fine-tuning. 
+Refer to official evaluation platform: https://huggingface.co/spaces/Building3D/Building3DTallinnDatasetEvaluationPlatform
 
 ---
 
@@ -369,10 +367,9 @@ without additional fine-tuning.
 
 This work is built upon several excellent open-source projects:
 
-* PointNet++
-* Point Transformer v3
-* Point2Roof
-* PC2WF
+* [PointNet++](https://github.com/charlesq34/pointnet2)
+* [Point Transformer v3](https://github.com/pointcept/pointtransformerv3)
+* [Point2Roof](https://github.com/Li-Li-Whu/Point2Roof)
 
 We sincerely thank the authors for their contributions.
 
@@ -380,7 +377,9 @@ We sincerely thank the authors for their contributions.
 
 # 📬 Contact
 
-Haoran Gong
+[Haoran Gong](gonghr@stu.xjtu.edu.cn)
 Xi’an Jiaotong University
+
+📧 Email: <gonghr@stu.xjtu.edu.cn>
 
 If you find this work useful, please consider giving a ⭐ to the repository.
