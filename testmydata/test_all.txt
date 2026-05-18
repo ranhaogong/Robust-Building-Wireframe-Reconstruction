@@ -1,5 +1,0 @@
-/data/haoran/Point2Roof/testmydata/tokyo_20_cluster_0.xyz
-/data/haoran/Point2Roof/testmydata/tokyo_20_cluster_1.xyz
-/data/haoran/Point2Roof/testmydata/tokyo_20_cluster_2.xyz
-/data/haoran/Point2Roof/testmydata/tokyo_20_cluster_3.xyz
-/data/haoran/Point2Roof/testmydata/tokyo_4.xyz
