@@ -148,8 +148,6 @@ If some packages are missing, install them according to compilation/runtime erro
 
 ## Building3D Dataset
 
-
-
 Expected structure:
 
 ```text
@@ -158,6 +156,8 @@ data/
 ├── Building3d_tokyo/
 └── ...
 ```
+
+Processed datasets: https://pan.baidu.com/s/1LLhBVh-bNSnFjIUJBuGOBQ?pwd=287q
 
 ---
 
@@ -320,14 +320,17 @@ python tokyo_output_merge.py
 
 # 🏋️ Training
 
-## Train Candidate Corner Detection + Edge Classification
-
 ```bash
 cd script
 
 CUDA_VISIBLE_DEVICES=0 \
-python train.py \
-    --cfg_file ../cfg/your_config.yaml
+python ../train_building3d.py \
+--data_path ../data/Building3d_tallinn \
+--cfg_file ../cfg/model_cfg_color_fpfh_lovasz_2048_dbscan_003_cross_attention.yaml \
+--batch_size 64 \
+--extra_tag building3d_all_ptv3_color_2048_adamw_cosine_lr4_epoch150_fpfh_lovasz_edge_dbscan_003_cross_attention \
+--epochs 150 \
+--lr 1e-3
 ```
 
 ---
