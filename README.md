@@ -267,6 +267,8 @@ cd ..
 
 ### Step 5: Modify Edge Threshold
 
+> not necessary, it's a trick and it's dataset-sensitive, the improvement is marginal
+
 Edit:
 
 ```text
