@@ -20,7 +20,7 @@ Accurate 3D building reconstruction is crucial for advancing urban digital twinn
 
 ### International Journal of Remote Sensing 2025
 
-**Robust building wireframe reconstruction: a hypergraph and transformer-enhanced framework for large-scale and real-world urban point clouds**
+**Robust building wireframe reconstruction: a hypergraph and transformer-enhanced framework for large-scale and real-world urban point clouds**  
 Haoran Gong, Jing Liu, Rui Tong, Fuqiang Tian, Di Wang
 
 📄 DOI: [https://doi.org/10.1080/01431161.2025.2583601](https://doi.org/10.1080/01431161.2025.2583601)
